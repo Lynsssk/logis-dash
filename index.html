@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LogisDash - Operação em Tempo Real</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="logo">
+            <i class="fa-solid fa-truck-fast"></i> LogisDash
+        </div>
+        <ul class="menu">
+            <li class="active"><i class="fa-solid fa-chart-line"></i> Dashboard</li>
+            <li><i class="fa-solid fa-magnifying-glass-location"></i> Rastreio Rápido</li>
+            <li><i class="fa-solid fa-boxes-stacked"></i> Pátio / Escala</li>
+            <li><i class="fa-solid fa-file-excel"></i> Importar SAP</li>
+        </ul>
+    </nav>
+
+    <main class="main-content">
+        <header class="topbar">
+            <div class="search-container">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="global-search" placeholder="Buscar por placa (ex: RLU7), cliente ou transp...">
+            </div>
+            
+            <div class="topbar-right">
+                <span id="status-operacao" class="badge bg-success">Operação Normal</span>
+                <div class="clock" id="realtime-clock">00:00:00</div>
+                <div class="user-profile"><div class="avatar">L</div></div>
+            </div>
+        </header>
+
+        <section class="kpi-grid">
+            <div class="kpi-card border-green">
+                <div class="kpi-info">
+                    <h3>Em Rota / Descarregando</h3>
+                    <p class="kpi-value" id="kpi-rota">0</p>
+                </div>
+                <i class="fa-solid fa-route kpi-icon text-green"></i>
+            </div>
+            <div class="kpi-card border-blue">
+                <div class="kpi-info">
+                    <h3>No Pátio (Separando)</h3>
+                    <p class="kpi-value" id="kpi-patio">0</p>
+                </div>
+                <i class="fa-solid fa-dolly kpi-icon text-blue"></i>
+            </div>
+            <div class="kpi-card border-yellow">
+                <div class="kpi-info">
+                    <h3>Backlog / Segregado</h3>
+                    <p class="kpi-value" id="kpi-backlog">0</p>
+                </div>
+                <i class="fa-solid fa-triangle-exclamation kpi-icon text-yellow"></i>
+            </div>
+            <div class="kpi-card border-red">
+                <div class="kpi-info">
+                    <h3>Ociosos / Atrasados</h3>
+                    <p class="kpi-value" id="kpi-ociosos">0</p>
+                </div>
+                <i class="fa-solid fa-clock kpi-icon text-red"></i>
+            </div>
+        </section>
+
+        <div class="filter-bar">
+            <strong>Filtros:</strong>
+            <button class="btn-filter active" onclick="filtrarVisao('todos')">Todos</button>
+            <button class="btn-filter" onclick="filtrarVisao('rota')">Em Rota (Comercial)</button>
+            <button class="btn-filter" onclick="filtrarVisao('atrasados')">Atrasos / Cobranças</button>
+            <button class="btn-filter" onclick="filtrarVisao('atacadao')">Foco Atacadão / Sendas</button>
+        </div>
+
+        <section class="dashboard-body">
+            <div class="panel">
+                <h3>Ocupação vs Ociosidade (%)</h3>
+                <div class="chart-container">
+                    <canvas id="operacionalChart"></canvas>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3><i class="fa-solid fa-headset text-blue"></i> Central de Cobranças (Teams)</h3>
+                <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 15px;">
+                    Clique no botão para copiar a mensagem pronta.
+                </p>
+                <div class="alert-list" id="action-list">
+                    </div>
+            </div>
+        </section>
+
+        <section class="panel" id="search-results" style="margin-top: 20px; display: none;">
+            <h3>Resultados da Busca</h3>
+            <div id="search-content"></div>
+        </section>
+    </main>
+
+    <div id="toast" class="toast hidden">Mensagem copiada para a área de transferência!</div>
+
+    <script src="script.js"></script>
+</body>
+</html>
