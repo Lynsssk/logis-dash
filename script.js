@@ -215,3 +215,145 @@ atualizarRelogio(); // Chama imediatamente para não esperar 1 segundo
 
 // Inicia o sistema ao carregar o código
 initDashboard();
+
+// ==========================================
+// CONTROLE DE NAVEGAÇÃO DE ABAS
+// ==========================================
+document.querySelectorAll('#menu-principal li').forEach(item => {
+    item.addEventListener('click', function() {
+        // Remove 'active' de todos os menus e esconde todas as abas
+        document.querySelectorAll('#menu-principal li').forEach(li => li.classList.remove('active'));
+        document.querySelectorAll('.secao-aba').forEach(aba => aba.classList.remove('ativa'));
+        
+        // Ativa o menu clicado e mostra a aba correspondente
+        this.classList.add('active');
+        const targetId = this.getAttribute('data-target');
+        document.getElementById(targetId).classList.add('ativa');
+    });
+});
+
+// ==========================================
+// LÓGICA DE IMPORTAÇÃO DE DADOS (EXCEL/CSV)
+// ==========================================
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+let frotaTemporaria = []; // Guarda os dados antes de você confirmar
+
+// Efeitos visuais ao arrastar arquivo
+dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault(); dropZone.classList.remove('dragover');
+    if (e.dataTransfer.files.length) processarArquivo(e.dataTransfer.files[0]);
+});
+
+fileInput.addEventListener('change', function() {
+    if (this.files.length) processarArquivo(this.files[0]);
+});
+
+function processarArquivo(arquivo) {
+    const reader = new FileReader();
+    
+    reader.onload = function(e) {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        
+        // Pega a primeira aba da planilha
+        const primeiraAba = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[primeiraAba];
+        
+        // Converte para JSON
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+        
+        mapearColunasInteligente(jsonData);
+    };
+    
+    reader.readAsArrayBuffer(arquivo);
+}
+
+function mapearColunasInteligente(dadosBrutos) {
+    frotaTemporaria = [];
+    
+    dadosBrutos.forEach((linha, index) => {
+        // Procura os campos independente de estar em maiúsculo/minúsculo no Excel
+        let chaves = Object.keys(linha).map(k => k.toLowerCase());
+        
+        // Pega os valores originais tentando achar a chave correspondente
+        let placaStr = getValor(linha, ['placa', 'carro pateado']);
+        let transpStr = getValor(linha, ['transp', 'transportadora']);
+        let clienteStr = getValor(linha, ['cliente', 'loja', 'destino']);
+        let statusStr = getValor(linha, ['status', 'status2', 'ravex']);
+        
+        if(placaStr && placaStr.trim() !== "") {
+            // Lógica de inteligência de status (Você pode calibrar depois)
+            let tempoStr = statusStr.toLowerCase().includes('atrasado') ? 'Atrasado' : 'Normal';
+            let tipoStr = statusStr.toLowerCase().includes('rota') ? 'Rota' : 'Pátio';
+
+            frotaTemporaria.push({
+                id: index,
+                placa: placaStr,
+                transp: transpStr || "N/A",
+                cliente: clienteStr || "A Definir",
+                status: statusStr || "Em processo",
+                tipo: tipoStr,
+                tempo: tempoStr
+            });
+        }
+    });
+
+    if(frotaTemporaria.length > 0) {
+        mostrarPreview();
+    } else {
+        mostrarMensagem('Erro: Não foram encontradas colunas de Placa/Cliente na planilha.', 'erro');
+    }
+}
+
+// Função auxiliar para achar chaves flexíveis
+function getValor(obj, palavrasChave) {
+    for (let key in obj) {
+        if (palavrasChave.some(pk => key.toLowerCase().includes(pk))) {
+            return obj[key];
+        }
+    }
+    return "";
+}
+
+function mostrarPreview() {
+    const tbody = document.getElementById('tabela-preview-body');
+    tbody.innerHTML = '';
+    
+    // Mostra as 5 primeiras linhas como exemplo
+    const amostra = frotaTemporaria.slice(0, 5);
+    amostra.forEach(v => {
+        tbody.innerHTML += `<tr>
+            <td><strong>${v.placa}</strong></td>
+            <td>${v.transp}</td>
+            <td>${v.cliente}</td>
+            <td><span class="badge bg-success">${v.status}</span></td>
+        </tr>`;
+    });
+
+    document.getElementById('preview-dados').classList.remove('hidden');
+    mostrarMensagem(`Planilha lida com sucesso! ${frotaTemporaria.length} veículos encontrados.`, 'sucesso');
+}
+
+function mostrarMensagem(texto, tipo) {
+    const msgBox = document.getElementById('status-importacao');
+    msgBox.textContent = texto;
+    msgBox.className = `status-msg ${tipo}`;
+}
+
+// Quando clicar em "Confirmar"
+document.getElementById('btn-confirmar-importacao').addEventListener('click', () => {
+    // Substitui a frota atual do sistema pela nova planilha
+    frotaAtiva = frotaTemporaria;
+    salvarDados(); // Salva no LocalStorage
+    
+    mostrarMensagem('Dashboard atualizado! Voltando para a tela inicial...', 'sucesso');
+    document.getElementById('preview-dados').classList.add('hidden');
+    
+    // Volta para a aba Dashboard após 1.5 segundos
+    setTimeout(() => {
+        document.querySelector('[data-target="aba-dashboard"]').click();
+    }, 1500);
+});
