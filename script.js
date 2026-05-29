@@ -1,359 +1,222 @@
+let frotaAtiva = JSON.parse(localStorage.getItem('logisData')) || [];
+let frotaTemporaria = [];
+
 // ==========================================
-// 1. BANCO DE DADOS LOCAL (LOCALSTORAGE)
+// 1. INICIALIZAÇÃO E RENDERIZAÇÃO
 // ==========================================
-
-// Dados simulados baseados na sua operação real para a primeira vez que o sistema abrir
-const dadosIniciais = [
-    { id: 1, placa: "PDE9J62>>PFL5I16", transp: "OTIMIZAR", cliente: "NOVO ATACADO", status: "Em Loja - Sem Previsão", tipo: "Comercial", tempo: "Atrasado" },
-    { id: 2, placa: "KKT9E78", transp: "PAIXÃO", cliente: "ATACADAO SA", status: "Início de descarga", tipo: "Rota", tempo: "Normal" },
-    { id: 3, placa: "RLU7I85", transp: "PAIXÃO", cliente: "UNI COMPRA", status: "Carregado (Atrasado)", tipo: "Pátio", tempo: "Atrasado" },
-    { id: 4, placa: "QJU1343>>EFV9782", transp: "CARGOSUL", cliente: "CF DISTRIBUIDORA", status: "Fora do Horário", tipo: "Pátio", tempo: "Atrasado" },
-    { id: 5, placa: "JSR7I98", transp: "GABRI", cliente: "SENDAS", status: "Reinício (Pernoite)", tipo: "Rota", tempo: "Atenção" },
-    { id: 6, placa: "TPE1E93", transp: "DIRETA", cliente: "REDE BOM COMERCIO", status: "Separando", tipo: "Pátio", tempo: "Normal" },
-    { id: 7, placa: "SEM PLACA", transp: "A DEFINIR", cliente: "MERCADO LOCAL", status: "Falta de veículo", tipo: "Backlog", tempo: "Crítico" }
-];
-
-// Tenta buscar os dados salvos no navegador. Se não existir, usa os dados Iniciais.
-let frotaAtiva = JSON.parse(localStorage.getItem('logisData')) || dadosIniciais;
-
-// Função que você usará no futuro para salvar edições/importações
 function salvarDados() {
     localStorage.setItem('logisData', JSON.stringify(frotaAtiva));
-    initDashboard(); // Atualiza a tela toda vez que salvar algo novo
+    initDashboard();
 }
-
-
-// ==========================================
-// 2. INICIALIZAÇÃO DO DASHBOARD E KPIS
-// ==========================================
-let myChart; // Variável global para o gráfico
 
 function initDashboard() {
     const total = frotaAtiva.length;
     const emRota = frotaAtiva.filter(v => v.tipo === "Rota" || v.tipo === "Comercial").length;
     const noPatio = frotaAtiva.filter(v => v.tipo === "Pátio").length;
     const backlog = frotaAtiva.filter(v => v.tipo === "Backlog").length;
-    
-    // Ociosidade = Carros atrasados no pátio ou críticos (falta de veículo)
     const ociosos = frotaAtiva.filter(v => v.tempo === "Atrasado" || v.tempo === "Crítico").length;
 
-    // Atualizando os números dos cards (KPIs) no HTML
     document.getElementById('kpi-rota').textContent = emRota;
     document.getElementById('kpi-patio').textContent = noPatio;
     document.getElementById('kpi-backlog').textContent = backlog;
     document.getElementById('kpi-ociosos').textContent = ociosos;
 
-    // Cálculo da Porcentagem para o Gráfico
     const pctOcupacao = total > 0 ? Math.round(((total - ociosos) / total) * 100) : 0;
     const pctOciosidade = total > 0 ? Math.round((ociosos / total) * 100) : 0;
 
     renderizarGrafico(pctOcupacao, pctOciosidade);
-    gerarCobrancas();
+    renderizarCobrancas();
+    renderizarTabelaCompleta(); // <-- NOVA CHAMADA
 }
 
-
 // ==========================================
-// 3. GRÁFICO OPERACIONAL (CHART.JS)
+// 2. TABELA DE MONITORAMENTO E TROCA DE PLACA
 // ==========================================
-function renderizarGrafico(ocupado, ocioso) {
-    const ctx = document.getElementById('operacionalChart').getContext('2d');
-    
-    // Destrói o gráfico antigo antes de criar um novo (evita bugar quando atualiza)
-    if(myChart) myChart.destroy();
-    
-    myChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: [`Ocupação (${ocupado}%)`, `Ociosidade (${ocioso}%)`],
-            datasets: [{
-                data: [ocupado, ocioso],
-                backgroundColor: ['#10b981', '#ef4444'], // Verde e Vermelho
-                borderWidth: 0,
-                cutout: '70%' // Deixa o buraco no meio maior
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { position: 'bottom', labels: { color: '#f8fafc' } }
-            }
-        }
-    });
-}
+function renderizarTabelaCompleta() {
+    const tbody = document.getElementById('tabela-dashboard-body');
+    tbody.innerHTML = '';
 
+    frotaAtiva.forEach((v, index) => {
+        // Estiliza a cor do status baseado no texto
+        let statusClass = "bg-success"; 
+        if (v.status.toLowerCase().includes("atrasado") || v.status.toLowerCase().includes("sem previsão")) statusClass = "bg-red";
+        else if (v.status.toLowerCase().includes("finalizado")) statusClass = "bg-gray";
+        
+        let motivoHtml = v.motivoTroca ? `<span class="motivo-texto"><i class="fa-solid fa-triangle-exclamation"></i> ${v.motivoTroca}</span>` : "-";
 
-// ==========================================
-// 4. CENTRAL DE COBRANÇAS (TEAMS)
-// ==========================================
-function gerarCobrancas() {
-    const list = document.getElementById('action-list');
-    list.innerHTML = ''; // Limpa a lista antes de gerar
-
-    frotaAtiva.forEach(v => {
-        // Regra para gerar alerta: Atrasado, Crítico ou Sem Previsão
-        if (v.tempo === "Atrasado" || v.tempo === "Crítico" || v.status.includes("Sem Previsão")) {
-            
-            let acaoMsg = "";
-            let copyText = "";
-            let corBorda = "";
-
-            if (v.tipo === "Comercial") {
-                acaoMsg = `Cobrar Comercial/Operação (Loja)`;
-                corBorda = "var(--yellow)";
-                copyText = `Prezados, o veículo ${v.placa} (${v.transp}) está no cliente ${v.cliente} com status '${v.status}'. Podem intervir junto à loja?`;
-            } else {
-                acaoMsg = `Cobrar Transportadora: ${v.transp}`;
-                corBorda = "var(--red)";
-                copyText = `Olá equipe ${v.transp}, identificamos atraso na grade do veículo ${v.placa} (Cliente: ${v.cliente}). Favor posicionar status da operação.`;
-            }
-
-            // Cria o card de alerta no HTML
-            list.innerHTML += `
-                <div class="alert-item" style="border-left: 4px solid ${corBorda}">
-                    <div>
-                        <strong style="color: white">${v.cliente}</strong> - <span style="color: var(--text-muted); font-size: 0.85rem">${v.placa}</span>
-                        <p style="font-size: 0.85rem; color: #cbd5e1; margin-top: 5px;">Ação: ${acaoMsg}</p>
-                    </div>
-                    <button class="btn-teams" onclick="copiarTeams('${copyText}')">
-                        <i class="fa-brands fa-windows"></i> Copiar Texto
+        tbody.innerHTML += `
+            <tr>
+                <td>
+                    <button class="btn-icon" onclick="abrirModalPlaca(${index}, '${v.placa}')" title="Trocar Placa">
+                        <i class="fa-solid fa-pen-to-square"></i>
                     </button>
-                </div>
-            `;
-        }
+                </td>
+                <td><strong>${v.placa}</strong></td>
+                <td>${v.transp}</td>
+                <td>${v.cliente}</td>
+                <td><span class="badge ${statusClass}">${v.status}</span></td>
+                <td>${motivoHtml}</td>
+            </tr>
+        `;
     });
 }
 
-// Função para copiar o texto e mostrar o aviso verde na tela
-window.copiarTeams = function(texto) {
-    navigator.clipboard.writeText(texto).then(() => {
-        const toast = document.getElementById('toast');
-        toast.classList.remove('hidden');
-        
-        // Esconde o aviso depois de 3 segundos
-        setTimeout(() => toast.classList.add('hidden'), 3000);
-    });
+function abrirModalPlaca(index, placaAtual) {
+    document.getElementById('modal-id-veiculo').value = index;
+    document.getElementById('placa-atual-texto').textContent = `Placa Atual: ${placaAtual}`;
+    document.getElementById('nova-placa').value = '';
+    document.getElementById('modal-placa').classList.remove('hidden');
 }
 
+function fecharModal() { document.getElementById('modal-placa').classList.add('hidden'); }
 
-// ==========================================
-// 5. MOTOR DE BUSCA ("CADÊ A PLACA?")
-// ==========================================
-document.getElementById('global-search').addEventListener('input', function(e) {
-    const query = e.target.value.toLowerCase();
-    const resultSection = document.getElementById('search-results');
-    const content = document.getElementById('search-content');
-    
-    // Só pesquisa se digitar mais de 2 letras
-    if(query.length < 2) {
-        resultSection.style.display = 'none';
-        return;
+function salvarTrocaPlaca() {
+    const index = document.getElementById('modal-id-veiculo').value;
+    const novaPlaca = document.getElementById('nova-placa').value;
+    const motivo = document.getElementById('motivo-troca').value;
+
+    if (novaPlaca.trim() !== "") {
+        frotaAtiva[index].placa = novaPlaca.toUpperCase();
+        frotaAtiva[index].motivoTroca = motivo;
+        salvarDados();
+        fecharModal();
+        mostrarToast(`Placa alterada para ${novaPlaca.toUpperCase()}`);
     }
+}
 
-    // Filtra ignorando maiúsculas e minúsculas
-    const filtrados = frotaAtiva.filter(v => 
-        v.placa.toLowerCase().includes(query) || 
-        v.cliente.toLowerCase().includes(query) ||
-        v.transp.toLowerCase().includes(query)
-    );
-
-    content.innerHTML = '';
+// ==========================================
+// 3. NOTIFICAR COMERCIAL (Gera o Relatório)
+// ==========================================
+window.enviarPlanilhaComercial = function() {
+    let textoComercial = "*RESUMO OPERACIONAL - MONITORAMENTO*\n\n";
     
-    if(filtrados.length > 0) {
-        filtrados.forEach(v => {
-            content.innerHTML += `
-                <div class="search-result-card">
-                    <strong>Transportadora:</strong> ${v.transp} | 
-                    <strong>Placa:</strong> ${v.placa} <br>
-                    <strong>Cliente:</strong> ${v.cliente} | 
-                    <strong>Status Atual:</strong> <span class="badge bg-success" style="background: rgba(59,130,246,0.2); color: #60a5fa">${v.status}</span>
-                </div>
-            `;
-        });
-        resultSection.style.display = 'block';
+    let pendentes = frotaAtiva.filter(v => !v.status.toLowerCase().includes("finalizado"));
+    
+    if (pendentes.length === 0) {
+        textoComercial += "✅ Todas as rotas estão finalizadas no momento.\n";
     } else {
-        content.innerHTML = '<p style="color: var(--text-muted)">Nenhum veículo encontrado com esse termo.</p>';
-        resultSection.style.display = 'block';
+        pendentes.forEach(v => {
+            textoComercial += `🚚 *${v.cliente}* (Transp: ${v.transp})\n`;
+            textoComercial += `📍 Placa: ${v.placa} | Status: ${v.status}\n`;
+            if (v.motivoTroca) textoComercial += `⚠️ Obs: Troca de placa por ${v.motivoTroca}\n`;
+            textoComercial += `--------------------------\n`;
+        });
     }
-});
 
-
-// ==========================================
-// 6. FILTROS DA VISÃO COMERCIAL (BOTÕES)
-// ==========================================
-window.filtrarVisao = function(tipo) {
-    // Remove a classe 'active' de todos os botões e coloca no botão clicado
-    document.querySelectorAll('.btn-filter').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
-    
-    // Efeitos visuais baseados no filtro clicado
-    if(tipo === 'atacadao') {
-        // Pisca a borda amarela (Backlog) para chamar atenção
-        const cardBacklog = document.querySelector('.border-yellow');
-        cardBacklog.style.boxShadow = "0 0 20px var(--yellow)";
-        setTimeout(() => cardBacklog.style.boxShadow = "none", 1500);
-    } else if (tipo === 'atrasados') {
-        // Pisca a borda vermelha
-        const cardOciosos = document.querySelector('.border-red');
-        cardOciosos.style.boxShadow = "0 0 20px var(--red)";
-        setTimeout(() => cardOciosos.style.boxShadow = "none", 1500);
-    }
-    // No futuro, ao clicar nesses filtros, podemos filtrar a tabela inteira que for importada do Excel
-}
-
-
-// ==========================================
-// 7. RELÓGIO EM TEMPO REAL
-// ==========================================
-function atualizarRelogio() {
-    const now = new Date();
-    document.getElementById('realtime-clock').textContent = now.toLocaleTimeString('pt-BR');
-}
-setInterval(atualizarRelogio, 1000);
-atualizarRelogio(); // Chama imediatamente para não esperar 1 segundo
-
-
-// Inicia o sistema ao carregar o código
-initDashboard();
-
-// ==========================================
-// CONTROLE DE NAVEGAÇÃO DE ABAS
-// ==========================================
-document.querySelectorAll('#menu-principal li').forEach(item => {
-    item.addEventListener('click', function() {
-        // Remove 'active' de todos os menus e esconde todas as abas
-        document.querySelectorAll('#menu-principal li').forEach(li => li.classList.remove('active'));
-        document.querySelectorAll('.secao-aba').forEach(aba => aba.classList.remove('ativa'));
-        
-        // Ativa o menu clicado e mostra a aba correspondente
-        this.classList.add('active');
-        const targetId = this.getAttribute('data-target');
-        document.getElementById(targetId).classList.add('ativa');
+    navigator.clipboard.writeText(textoComercial).then(() => {
+        mostrarToast("Resumo copiado! Cole no Teams ou E-mail do Comercial.");
     });
-});
+}
 
 // ==========================================
-// LÓGICA DE IMPORTAÇÃO DE DADOS (EXCEL/CSV)
+// 4. IMPORTAÇÃO INTELIGENTE (CORREÇÃO DA BAGUNÇA)
 // ==========================================
 const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('file-input');
-let frotaTemporaria = []; // Guarda os dados antes de você confirmar
 
-// Efeitos visuais ao arrastar arquivo
 dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
 dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
 dropZone.addEventListener('drop', (e) => {
     e.preventDefault(); dropZone.classList.remove('dragover');
     if (e.dataTransfer.files.length) processarArquivo(e.dataTransfer.files[0]);
 });
-
-fileInput.addEventListener('change', function() {
-    if (this.files.length) processarArquivo(this.files[0]);
-});
+fileInput.addEventListener('change', function() { if (this.files.length) processarArquivo(this.files[0]); });
 
 function processarArquivo(arquivo) {
     const reader = new FileReader();
-    
     reader.onload = function(e) {
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, { type: 'array' });
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
         
-        // Pega a primeira aba da planilha
-        const primeiraAba = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[primeiraAba];
-        
-        // Converte para JSON
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
-        
-        mapearColunasInteligente(jsonData);
+        // Lê a partir da linha 3 (range: 2), onde os cabeçalhos reais estão!
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { range: 2, defval: "" });
+        mapearColunasExatas(jsonData);
     };
-    
     reader.readAsArrayBuffer(arquivo);
 }
 
-function mapearColunasInteligente(dadosBrutos) {
+function mapearColunasExatas(dadosBrutos) {
     frotaTemporaria = [];
-    
     dadosBrutos.forEach((linha, index) => {
-        // Procura os campos independente de estar em maiúsculo/minúsculo no Excel
-        let chaves = Object.keys(linha).map(k => k.toLowerCase());
-        
-        // Pega os valores originais tentando achar a chave correspondente
-        let placaStr = getValor(linha, ['placa', 'carro pateado']);
-        let transpStr = getValor(linha, ['transp', 'transportadora']);
-        let clienteStr = getValor(linha, ['cliente', 'loja', 'destino']);
-        let statusStr = getValor(linha, ['status', 'status2', 'ravex']);
-        
-        if(placaStr && placaStr.trim() !== "") {
-            // Lógica de inteligência de status (Você pode calibrar depois)
-            let tempoStr = statusStr.toLowerCase().includes('atrasado') ? 'Atrasado' : 'Normal';
-            let tipoStr = statusStr.toLowerCase().includes('rota') ? 'Rota' : 'Pátio';
+        // Busca cirúrgica pelas colunas com o nome EXATO ou partes óbvias (ignorando CONCATENAR/LOJA solto)
+        let placaStr = linha['PLACA'] || linha['Placa'] || getValorSeguro(linha, 'placa');
+        let transpStr = linha['TRANSP.'] || linha['Transp'] || linha['TRANSPORTADORA'] || getValorSeguro(linha, 'transp');
+        let clienteStr = linha['CLIENTE'] || linha['Cliente'] || getValorSeguro(linha, 'cliente'); 
+        let statusStr = linha['STATUS'] || linha['Status'] || getValorSeguro(linha, 'status');
 
+        if(placaStr && clienteStr && placaStr.trim() !== "") {
+            let tempoStr = statusStr.toLowerCase().includes('atrasado') ? 'Atrasado' : 'Normal';
             frotaTemporaria.push({
                 id: index,
                 placa: placaStr,
                 transp: transpStr || "N/A",
-                cliente: clienteStr || "A Definir",
+                cliente: clienteStr,
                 status: statusStr || "Em processo",
-                tipo: tipoStr,
-                tempo: tempoStr
+                tipo: statusStr.toLowerCase().includes('loja') ? 'Comercial' : 'Rota',
+                tempo: tempoStr,
+                motivoTroca: null // Inicialmente vazio
             });
         }
     });
 
     if(frotaTemporaria.length > 0) {
-        mostrarPreview();
+        frotaAtiva = frotaTemporaria;
+        salvarDados();
+        mostrarToast(`Importação perfeita! ${frotaAtiva.length} veículos carregados.`);
+        setTimeout(() => document.querySelector('[data-target="aba-dashboard"]').click(), 1000);
     } else {
-        mostrarMensagem('Erro: Não foram encontradas colunas de Placa/Cliente na planilha.', 'erro');
+        alert("Erro: Não encontrei as colunas PLACA e CLIENTE. Verifique a planilha.");
     }
 }
 
-// Função auxiliar para achar chaves flexíveis
-function getValor(obj, palavrasChave) {
-    for (let key in obj) {
-        if (palavrasChave.some(pk => key.toLowerCase().includes(pk))) {
-            return obj[key];
-        }
-    }
-    return "";
+// Função auxiliar mais estrita para evitar pegar números do concatenar
+function getValorSeguro(obj, chaveAlvo) {
+    let chave = Object.keys(obj).find(k => k.toLowerCase().trim() === chaveAlvo.toLowerCase());
+    return chave ? obj[chave] : "";
 }
 
-function mostrarPreview() {
-    const tbody = document.getElementById('tabela-preview-body');
-    tbody.innerHTML = '';
-    
-    // Mostra as 5 primeiras linhas como exemplo
-    const amostra = frotaTemporaria.slice(0, 5);
-    amostra.forEach(v => {
-        tbody.innerHTML += `<tr>
-            <td><strong>${v.placa}</strong></td>
-            <td>${v.transp}</td>
-            <td>${v.cliente}</td>
-            <td><span class="badge bg-success">${v.status}</span></td>
-        </tr>`;
+// ==========================================
+// FUNÇÕES AUXILIARES, GRÁFICOS E MENUS (MANTIDOS)
+// ==========================================
+document.querySelectorAll('#menu-principal li').forEach(item => {
+    item.addEventListener('click', function() {
+        document.querySelectorAll('#menu-principal li').forEach(li => li.classList.remove('active'));
+        document.querySelectorAll('.secao-aba').forEach(aba => aba.classList.remove('ativa'));
+        this.classList.add('active');
+        document.getElementById(this.getAttribute('data-target')).classList.add('ativa');
     });
-
-    document.getElementById('preview-dados').classList.remove('hidden');
-    mostrarMensagem(`Planilha lida com sucesso! ${frotaTemporaria.length} veículos encontrados.`, 'sucesso');
-}
-
-function mostrarMensagem(texto, tipo) {
-    const msgBox = document.getElementById('status-importacao');
-    msgBox.textContent = texto;
-    msgBox.className = `status-msg ${tipo}`;
-}
-
-// Quando clicar em "Confirmar"
-document.getElementById('btn-confirmar-importacao').addEventListener('click', () => {
-    // Substitui a frota atual do sistema pela nova planilha
-    frotaAtiva = frotaTemporaria;
-    salvarDados(); // Salva no LocalStorage
-    
-    mostrarMensagem('Dashboard atualizado! Voltando para a tela inicial...', 'sucesso');
-    document.getElementById('preview-dados').classList.add('hidden');
-    
-    // Volta para a aba Dashboard após 1.5 segundos
-    setTimeout(() => {
-        document.querySelector('[data-target="aba-dashboard"]').click();
-    }, 1500);
 });
+
+let myChart;
+function renderizarGrafico(ocupado, ocioso) {
+    const ctx = document.getElementById('operacionalChart').getContext('2d');
+    if(myChart) myChart.destroy();
+    myChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: { labels: ['Ocupação', 'Ociosidade'], datasets: [{ data: [ocupado, ocioso], backgroundColor: ['#10b981', '#ef4444'], borderWidth: 0, cutout: '70%' }] },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+}
+
+function renderizarCobrancas() {
+    const list = document.getElementById('action-list');
+    list.innerHTML = '';
+    frotaAtiva.forEach(v => {
+        if (v.status.toLowerCase().includes("atrasado") || v.status.toLowerCase().includes("sem previsão")) {
+            list.innerHTML += `<div class="alert-item" style="border-left: 4px solid var(--red)">
+                <div><strong>${v.cliente}</strong><p style="font-size:0.8rem">${v.placa}</p></div>
+            </div>`;
+        }
+    });
+}
+
+function mostrarToast(msg) {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.classList.remove('hidden');
+    setTimeout(() => toast.classList.add('hidden'), 3000);
+}
+
+setInterval(() => document.getElementById('realtime-clock').textContent = new Date().toLocaleTimeString('pt-BR'), 1000);
+initDashboard();
