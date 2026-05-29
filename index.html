@@ -6,6 +6,7 @@
     <title>LogisDash - Operação em Tempo Real</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -13,11 +14,11 @@
         <div class="logo">
             <i class="fa-solid fa-truck-fast"></i> LogisDash
         </div>
-        <ul class="menu">
-            <li class="active"><i class="fa-solid fa-chart-line"></i> Dashboard</li>
-            <li><i class="fa-solid fa-magnifying-glass-location"></i> Rastreio Rápido</li>
-            <li><i class="fa-solid fa-boxes-stacked"></i> Pátio / Escala</li>
-            <li><i class="fa-solid fa-file-excel"></i> Importar SAP</li>
+        <ul class="menu" id="menu-principal">
+            <li class="active" data-target="aba-dashboard"><i class="fa-solid fa-chart-line"></i> Dashboard</li>
+            <li data-target="aba-importacao"><i class="fa-solid fa-file-import"></i> Importar Dados</li>
+            <li data-target="aba-rastreio"><i class="fa-solid fa-magnifying-glass-location"></i> Rastreio Rápido</li>
+            <li data-target="aba-escala"><i class="fa-solid fa-boxes-stacked"></i> Escala / Pátio</li>
         </ul>
     </nav>
 
@@ -27,7 +28,6 @@
                 <i class="fa-solid fa-magnifying-glass"></i>
                 <input type="text" id="global-search" placeholder="Buscar por placa (ex: RLU7), cliente ou transp...">
             </div>
-            
             <div class="topbar-right">
                 <span id="status-operacao" class="badge bg-success">Operação Normal</span>
                 <div class="clock" id="realtime-clock">00:00:00</div>
@@ -35,71 +35,91 @@
             </div>
         </header>
 
-        <section class="kpi-grid">
-            <div class="kpi-card border-green">
-                <div class="kpi-info">
-                    <h3>Em Rota / Descarregando</h3>
-                    <p class="kpi-value" id="kpi-rota">0</p>
+        <div id="aba-dashboard" class="secao-aba ativa">
+            <section class="kpi-grid">
+                <div class="kpi-card border-green">
+                    <div class="kpi-info"><h3>Em Rota / Descarregando</h3><p class="kpi-value" id="kpi-rota">0</p></div>
+                    <i class="fa-solid fa-route kpi-icon text-green"></i>
                 </div>
-                <i class="fa-solid fa-route kpi-icon text-green"></i>
-            </div>
-            <div class="kpi-card border-blue">
-                <div class="kpi-info">
-                    <h3>No Pátio (Separando)</h3>
-                    <p class="kpi-value" id="kpi-patio">0</p>
+                <div class="kpi-card border-blue">
+                    <div class="kpi-info"><h3>No Pátio (Separando)</h3><p class="kpi-value" id="kpi-patio">0</p></div>
+                    <i class="fa-solid fa-dolly kpi-icon text-blue"></i>
                 </div>
-                <i class="fa-solid fa-dolly kpi-icon text-blue"></i>
-            </div>
-            <div class="kpi-card border-yellow">
-                <div class="kpi-info">
-                    <h3>Backlog / Segregado</h3>
-                    <p class="kpi-value" id="kpi-backlog">0</p>
+                <div class="kpi-card border-yellow">
+                    <div class="kpi-info"><h3>Backlog / Segregado</h3><p class="kpi-value" id="kpi-backlog">0</p></div>
+                    <i class="fa-solid fa-triangle-exclamation kpi-icon text-yellow"></i>
                 </div>
-                <i class="fa-solid fa-triangle-exclamation kpi-icon text-yellow"></i>
-            </div>
-            <div class="kpi-card border-red">
-                <div class="kpi-info">
-                    <h3>Ociosos / Atrasados</h3>
-                    <p class="kpi-value" id="kpi-ociosos">0</p>
+                <div class="kpi-card border-red">
+                    <div class="kpi-info"><h3>Ociosos / Atrasados</h3><p class="kpi-value" id="kpi-ociosos">0</p></div>
+                    <i class="fa-solid fa-clock kpi-icon text-red"></i>
                 </div>
-                <i class="fa-solid fa-clock kpi-icon text-red"></i>
-            </div>
-        </section>
+            </section>
 
-        <div class="filter-bar">
-            <strong>Filtros:</strong>
-            <button class="btn-filter active" onclick="filtrarVisao('todos')">Todos</button>
-            <button class="btn-filter" onclick="filtrarVisao('rota')">Em Rota (Comercial)</button>
-            <button class="btn-filter" onclick="filtrarVisao('atrasados')">Atrasos / Cobranças</button>
-            <button class="btn-filter" onclick="filtrarVisao('atacadao')">Foco Atacadão / Sendas</button>
+            <div class="filter-bar">
+                <strong>Filtros:</strong>
+                <button class="btn-filter active" onclick="filtrarVisao('todos')">Todos</button>
+                <button class="btn-filter" onclick="filtrarVisao('rota')">Em Rota (Comercial)</button>
+                <button class="btn-filter" onclick="filtrarVisao('atrasados')">Atrasos / Cobranças</button>
+                <button class="btn-filter" onclick="filtrarVisao('atacadao')">Foco Atacadão / Sendas</button>
+            </div>
+
+            <section class="dashboard-body">
+                <div class="panel">
+                    <h3>Ocupação vs Ociosidade (%)</h3>
+                    <div class="chart-container"><canvas id="operacionalChart"></canvas></div>
+                </div>
+                <div class="panel">
+                    <h3><i class="fa-solid fa-headset text-blue"></i> Central de Cobranças (Teams)</h3>
+                    <div class="alert-list" id="action-list"></div>
+                </div>
+            </section>
         </div>
 
-        <section class="dashboard-body">
+        <div id="aba-importacao" class="secao-aba">
             <div class="panel">
-                <h3>Ocupação vs Ociosidade (%)</h3>
-                <div class="chart-container">
-                    <canvas id="operacionalChart"></canvas>
+                <h2><i class="fa-solid fa-file-excel text-green"></i> Central de Importação</h2>
+                <p class="subtexto">Importe seu relatório SAP ou sua Planilha de Monitoramento. O sistema organizará os dados automaticamente.</p>
+                
+                <div class="area-upload" id="drop-zone">
+                    <i class="fa-solid fa-cloud-arrow-up icon-upload"></i>
+                    <h3>Arraste e solte seu arquivo aqui</h3>
+                    <p>ou</p>
+                    <input type="file" id="file-input" accept=".xlsx, .xls, .csv" hidden>
+                    <button class="btn-procurar" onclick="document.getElementById('file-input').click()">Procurar Arquivo</button>
+                </div>
+
+                <div id="status-importacao" class="status-msg hidden"></div>
+
+                <div id="preview-dados" class="hidden" style="margin-top: 20px;">
+                    <h3>Visualização da Carga</h3>
+                    <div class="table-responsive">
+                        <table class="tabela-padrao">
+                            <thead><tr><th>Placa</th><th>Transp.</th><th>Cliente</th><th>Status</th></tr></thead>
+                            <tbody id="tabela-preview-body"></tbody>
+                        </table>
+                    </div>
+                    <button id="btn-confirmar-importacao" class="btn-sucesso" style="margin-top: 15px; width: 100%;">
+                        <i class="fa-solid fa-check-double"></i> Confirmar e Atualizar Dashboard
+                    </button>
                 </div>
             </div>
+        </div>
 
-            <div class="panel">
-                <h3><i class="fa-solid fa-headset text-blue"></i> Central de Cobranças (Teams)</h3>
-                <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 15px;">
-                    Clique no botão para copiar a mensagem pronta.
-                </p>
-                <div class="alert-list" id="action-list">
-                    </div>
-            </div>
-        </section>
+        <div id="aba-rastreio" class="secao-aba">
+            <div class="panel"><h2><i class="fa-solid fa-magnifying-glass-location"></i> Rastreio Rápido</h2><p>Módulo em construção para a próxima etapa.</p></div>
+        </div>
 
-        <section class="panel" id="search-results" style="margin-top: 20px; display: none;">
+        <div id="aba-escala" class="secao-aba">
+            <div class="panel"><h2><i class="fa-solid fa-boxes-stacked"></i> Escala e Pátio</h2><p>Módulo em construção para a próxima etapa.</p></div>
+        </div>
+
+        <section class="panel hidden" id="search-results" style="margin-top: 20px;">
             <h3>Resultados da Busca</h3>
             <div id="search-content"></div>
         </section>
     </main>
 
-    <div id="toast" class="toast hidden">Mensagem copiada para a área de transferência!</div>
-
+    <div id="toast" class="toast hidden">Ação realizada com sucesso!</div>
     <script src="script.js"></script>
 </body>
 </html>
