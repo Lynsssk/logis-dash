@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LogisDash - Operação em Tempo Real</title>
+    <title>LogisDash | Torre de Controle - Supervisor PRO</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -11,125 +11,152 @@
 </head>
 <body>
     <nav class="sidebar">
-        <div class="logo"><i class="fa-solid fa-truck-fast"></i> LogisDash</div>
+        <div class="logo"><i class="fa-solid fa-truck-fast"></i> LogisDash PRO</div>
         <ul class="menu" id="menu-principal">
-            <li class="active" data-target="aba-dashboard"><i class="fa-solid fa-chart-line"></i> Dashboard</li>
-            <li data-target="aba-importacao"><i class="fa-solid fa-file-import"></i> Importar Dados</li>
-            <li data-target="aba-rastreio"><i class="fa-solid fa-magnifying-glass-location"></i> Rastreio Rápido</li>
-            <li data-target="aba-escala"><i class="fa-solid fa-boxes-stacked"></i> Escala / Pátio</li>
+            <li class="active" data-target="aba-dashboard"><i class="fa-solid fa-chart-pie"></i> Dashboard</li>
+            <li data-target="aba-importacao"><i class="fa-solid fa-file-import"></i> Importar Cargas</li>
+            <li data-target="aba-monitoramento"><i class="fa-solid fa-desktop"></i> Monitoramento</li>
+            <li data-target="aba-reagendamentos"><i class="fa-solid fa-calendar-check"></i> Reagendamentos</li>
+            <li data-target="aba-ocorrencias"><i class="fa-solid fa-triangle-exclamation"></i> Ocorrências</li>
         </ul>
+        
+        <div class="rotina-panel">
+            <h4><i class="fa-regular fa-clock"></i> Rotina Operacional</h4>
+            <ul id="lista-rotina">
+                <li id="rotina-08" class="pendente"><span>08:00</span> Status Comercial</li>
+                <li id="rotina-10" class="pendente"><span>10:00</span> Grandes Contas</li>
+                <li id="rotina-15" class="pendente"><span>15:00</span> Reagendamentos</li>
+                <li id="rotina-17" class="pendente"><span>17:00</span> Fechamento</li>
+            </ul>
+        </div>
     </nav>
 
     <main class="main-content">
         <header class="topbar">
-            <div class="search-container">
-                <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" id="global-search" placeholder="Buscar por placa, cliente ou transp...">
+            <div>
+                <h2 id="saudacao">Bom dia, Michellyne.</h2>
+                <p id="data-atual" class="text-muted">Carregando data...</p>
             </div>
             <div class="topbar-right">
-                <span id="status-operacao" class="badge bg-success">Operação Normal</span>
+                <button class="btn-whatsapp" onclick="enviarWhatsApp()"><i class="fa-brands fa-whatsapp"></i> Gerar Status</button>
+                <i class="fa-solid fa-bell notification-bell" id="sino-alerta"></i>
                 <div class="clock" id="realtime-clock">00:00:00</div>
-                <div class="user-profile"><div class="avatar">L</div></div>
+                <div class="user-profile"><div class="avatar">M</div></div>
             </div>
         </header>
 
         <div id="aba-dashboard" class="secao-aba ativa">
             <section class="kpi-grid">
                 <div class="kpi-card border-green"><div class="kpi-info"><h3>Em Rota</h3><p class="kpi-value" id="kpi-rota">0</p></div><i class="fa-solid fa-route kpi-icon text-green"></i></div>
-                <div class="kpi-card border-blue"><div class="kpi-info"><h3>No Pátio</h3><p class="kpi-value" id="kpi-patio">0</p></div><i class="fa-solid fa-dolly kpi-icon text-blue"></i></div>
-                <div class="kpi-card border-yellow"><div class="kpi-info"><h3>Backlog</h3><p class="kpi-value" id="kpi-backlog">0</p></div><i class="fa-solid fa-triangle-exclamation kpi-icon text-yellow"></i></div>
-                <div class="kpi-card border-red"><div class="kpi-info"><h3>Atrasados</h3><p class="kpi-value" id="kpi-ociosos">0</p></div><i class="fa-solid fa-clock kpi-icon text-red"></i></div>
+                <div class="kpi-card border-gray"><div class="kpi-info"><h3>Finalizados</h3><p class="kpi-value" id="kpi-fin">0</p></div><i class="fa-solid fa-check-double kpi-icon text-gray"></i></div>
+                <div class="kpi-card border-yellow"><div class="kpi-info"><h3>Aguardando</h3><p class="kpi-value" id="kpi-aguard">0</p></div><i class="fa-solid fa-clock kpi-icon text-yellow"></i></div>
+                <div class="kpi-card border-red"><div class="kpi-info"><h3>Atrasados / S. Prev</h3><p class="kpi-value" id="kpi-atraso">0</p></div><i class="fa-solid fa-triangle-exclamation kpi-icon text-red"></i></div>
             </section>
-
+            
             <section class="dashboard-body">
                 <div class="panel">
-                    <h3>Ocupação vs Ociosidade (%)</h3>
-                    <div class="chart-container"><canvas id="operacionalChart"></canvas></div>
-                </div>
-                <div class="panel">
-                    <h3><i class="fa-solid fa-headset text-blue"></i> Central de Cobranças (Teams)</h3>
-                    <div class="alert-list" id="action-list"></div>
-                </div>
-
-                <div class="panel" style="grid-column: 1 / -1; margin-top: 20px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h3><i class="fa-solid fa-table"></i> Monitoramento Diário</h3>
-                        <button class="btn-sucesso" onclick="enviarPlanilhaComercial()" style="padding: 10px 15px; font-size: 0.9rem;">
-                            <i class="fa-solid fa-paper-plane"></i> Notificar Comercial
-                        </button>
-                    </div>
+                    <h3>Inteligência de Atrasos (Gargalos)</h3>
                     <div class="table-responsive">
                         <table class="tabela-padrao">
-                            <thead>
-                                <tr>
-                                    <th>Ações</th>
-                                    <th>Placa</th>
-                                    <th>Transportadora</th>
-                                    <th>Cliente</th>
-                                    <th>Status Atual</th>
-                                    <th>Motivo (Troca)</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tabela-dashboard-body">
-                                </tbody>
+                            <thead><tr><th>Cliente</th><th>Placa</th><th>Diagnóstico da IA</th></tr></thead>
+                            <tbody id="tabela-ia-atrasos"></tbody>
                         </table>
                     </div>
+                </div>
+                <div class="panel">
+                    <h3>Top Clientes Críticos</h3>
+                    <ul id="lista-criticos" class="lista-simples"></ul>
                 </div>
             </section>
         </div>
 
         <div id="aba-importacao" class="secao-aba">
             <div class="panel">
-                <h2><i class="fa-solid fa-file-excel text-green"></i> Importar Planilha de Monitoramento</h2>
-                <div class="area-upload" id="drop-zone">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
+                    <h2>Importar "Grandes Contas"</h2>
+                    <button class="btn-outline" onclick="abrirModalManual()"><i class="fa-solid fa-plus"></i> Adicionar Carga Manual</button>
+                </div>
+                <div class="form-group" style="background: rgba(59, 130, 246, 0.1); padding: 15px; border-radius: 8px;">
+                    <label>Data Alvo da Grade:</label>
+                    <input type="date" id="data-importacao" class="input-form" style="width: 200px;">
+                </div>
+                <div class="area-upload" id="drop-zone" style="margin-top: 15px;">
                     <i class="fa-solid fa-cloud-arrow-up icon-upload"></i>
-                    <h3>Arraste sua planilha (xlsx, csv) aqui</h3>
+                    <h3>Arraste sua planilha (Excel/CSV) aqui</h3>
                     <input type="file" id="file-input" accept=".xlsx, .xls, .csv" hidden>
                     <button class="btn-procurar" onclick="document.getElementById('file-input').click()">Procurar Arquivo</button>
-                </div>
-                <div id="status-importacao" class="status-msg hidden"></div>
-                <div id="preview-dados" class="hidden">
-                    <button id="btn-confirmar-importacao" class="btn-sucesso" style="width: 100%;">Confirmar e Atualizar Dashboard</button>
                 </div>
             </div>
         </div>
 
-        <div id="aba-rastreio" class="secao-aba"><div class="panel"><h2>Rastreio</h2></div></div>
-        <div id="aba-escala" class="secao-aba"><div class="panel"><h2>Escala</h2></div></div>
-        <section class="panel hidden" id="search-results"><h3>Resultados da Busca</h3><div id="search-content"></div></section>
+        <div id="aba-monitoramento" class="secao-aba">
+            <div class="panel">
+                <h2>Torre de Monitoramento</h2>
+                <div class="table-responsive">
+                    <table class="tabela-padrao" id="tabela-monitoramento">
+                        <thead><tr><th>Ações</th><th>Placa</th><th>Cliente</th><th>Fim Carreg.</th><th>Início Viagem</th><th>Status</th><th>Diagnóstico</th></tr></thead>
+                        <tbody id="tbody-monitoramento"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="aba-reagendamentos" class="secao-aba">
+            <div class="panel">
+                <h2>Gestão de Reagendamentos (Atacadão / WMS / Assaí)</h2>
+                <div class="table-responsive">
+                    <table class="tabela-padrao">
+                        <thead><tr><th>Cliente</th><th>Carga/NF</th><th>Placa</th><th>Status Reagend.</th><th>Anexo</th><th>Ação</th></tr></thead>
+                        <tbody id="tbody-reagendamentos"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div id="aba-ocorrencias" class="secao-aba">
+            <div class="panel"><h2>Registro de Ocorrências e Trocas</h2><p>Módulo de histórico operacional...</p></div>
+        </div>
     </main>
 
-    <div id="modal-placa" class="modal hidden">
-        <div class="modal-content">
-            <h3><i class="fa-solid fa-pen-to-square"></i> Troca de Placa</h3>
-            <p id="placa-atual-texto" style="margin-bottom: 15px; color: var(--text-muted);"></p>
-            
-            <input type="hidden" id="modal-id-veiculo">
-            
-            <div class="form-group">
-                <label>Nova Placa (Cavalinho / Carreta):</label>
-                <input type="text" id="nova-placa" class="input-form" placeholder="Ex: ABC1D23">
+    <div id="modal-manual" class="modal hidden">
+        <div class="modal-content" style="width: 500px;">
+            <h3>Inserir Carga Manualmente</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div class="form-group"><label>Cliente / Loja:</label><input type="text" id="man-cliente" class="input-form"></div>
+                <div class="form-group"><label>Placa:</label><input type="text" id="man-placa" class="input-form"></div>
+                <div class="form-group"><label>Fim Carregamento (HH:MM):</label><input type="time" id="man-fim" class="input-form"></div>
+                <div class="form-group"><label>Início Viagem (HH:MM):</label><input type="time" id="man-inicio" class="input-form"></div>
             </div>
-            
-            <div class="form-group">
-                <label>Motivo da Troca:</label>
-                <select id="motivo-troca" class="input-form">
-                    <option value="Quebra de Veículo">Quebra de Veículo</option>
-                    <option value="Rodízio / Documentação">Rodízio / Documentação</option>
-                    <option value="Readequação de Frota">Readequação de Frota</option>
-                    <option value="Ajuste Comercial">Ajuste Comercial</option>
-                    <option value="Outro">Outro</option>
-                </select>
-            </div>
-            
-            <div style="display: flex; gap: 10px; margin-top: 20px;">
-                <button class="btn-sucesso" onclick="salvarTrocaPlaca()" style="flex: 1;">Salvar Alteração</button>
-                <button class="btn-procurar" onclick="fecharModal()" style="background: #475569; flex: 1;">Cancelar</button>
+            <div class="form-group"><label>Status:</label><input type="text" id="man-status" class="input-form" value="AGUARDANDO"></div>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button class="btn-sucesso" onclick="salvarManual()" style="flex: 1;">Salvar</button>
+                <button class="btn-outline" onclick="fecharModais()" style="flex: 1;">Cancelar</button>
             </div>
         </div>
     </div>
 
-    <div id="toast" class="toast hidden">Ação realizada com sucesso!</div>
+    <div id="modal-reagendamento" class="modal hidden">
+        <div class="modal-content">
+            <h3>Tratar Reagendamento</h3>
+            <p id="reag-cliente" style="color: var(--blue); font-weight: bold; margin-bottom: 15px;"></p>
+            <input type="hidden" id="reag-id">
+            <div class="form-group"><label>Nº da Carga / Portal:</label><input type="text" id="reag-carga" class="input-form"></div>
+            <div class="form-group"><label>Status do Agendamento:</label>
+                <select id="reag-status" class="input-form">
+                    <option value="Pendente">Pendente</option>
+                    <option value="Solicitado ao Portal">Solicitado ao Portal</option>
+                    <option value="Concluído">Concluído</option>
+                </select>
+            </div>
+            <div class="form-group"><label>Anexar Comprovante (PDF):</label><input type="file" id="reag-file" class="input-form" accept=".pdf"></div>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button class="btn-sucesso" onclick="salvarReagendamento()" style="flex: 1;">Atualizar</button>
+                <button class="btn-outline" onclick="fecharModais()" style="flex: 1;">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast hidden">Notificação</div>
     <script src="script.js"></script>
 </body>
 </html>
