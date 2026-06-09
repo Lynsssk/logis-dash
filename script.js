@@ -1,222 +1,73 @@
-let frotaAtiva = JSON.parse(localStorage.getItem('logisData')) || [];
-let frotaTemporaria = [];
-
-// ==========================================
-// 1. INICIALIZAÇÃO E RENDERIZAÇÃO
-// ==========================================
-function salvarDados() {
-    localStorage.setItem('logisData', JSON.stringify(frotaAtiva));
-    initDashboard();
+:root {
+    --bg-dark: #0f172a; --panel-bg: #1e293b; --text-main: #f8fafc; --text-muted: #94a3b8;
+    --green: #10b981; --yellow: #f59e0b; --red: #ef4444; --blue: #3b82f6; --gray: #64748b;
+    --border-color: #334155;
 }
 
-function initDashboard() {
-    const total = frotaAtiva.length;
-    const emRota = frotaAtiva.filter(v => v.tipo === "Rota" || v.tipo === "Comercial").length;
-    const noPatio = frotaAtiva.filter(v => v.tipo === "Pátio").length;
-    const backlog = frotaAtiva.filter(v => v.tipo === "Backlog").length;
-    const ociosos = frotaAtiva.filter(v => v.tempo === "Atrasado" || v.tempo === "Crítico").length;
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+body { background-color: var(--bg-dark); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
 
-    document.getElementById('kpi-rota').textContent = emRota;
-    document.getElementById('kpi-patio').textContent = noPatio;
-    document.getElementById('kpi-backlog').textContent = backlog;
-    document.getElementById('kpi-ociosos').textContent = ociosos;
+/* Navegação e Rotina */
+.sidebar { width: 260px; background: var(--panel-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; }
+.logo { padding: 20px; font-size: 1.2rem; font-weight: bold; color: var(--blue); border-bottom: 1px solid var(--border-color); }
+.menu { list-style: none; padding: 15px; }
+.menu li { padding: 12px; margin-bottom: 5px; border-radius: 8px; cursor: pointer; color: var(--text-muted); transition: 0.2s; display: flex; gap: 10px; align-items: center; }
+.menu li:hover, .menu li.active { background: rgba(59, 130, 246, 0.1); color: var(--blue); }
 
-    const pctOcupacao = total > 0 ? Math.round(((total - ociosos) / total) * 100) : 0;
-    const pctOciosidade = total > 0 ? Math.round((ociosos / total) * 100) : 0;
+.rotina-panel { margin-top: auto; padding: 20px; border-top: 1px solid var(--border-color); background: rgba(0,0,0,0.2); }
+.rotina-panel h4 { color: var(--yellow); margin-bottom: 15px; font-size: 0.9rem; }
+#lista-rotina { list-style: none; }
+#lista-rotina li { display: flex; gap: 10px; font-size: 0.85rem; padding: 8px 0; border-bottom: 1px solid var(--border-color); color: var(--text-muted); }
+#lista-rotina li span { font-weight: bold; color: var(--text-main); }
+#lista-rotina li.pendente.urgente { color: var(--red); animation: piscar 1s infinite; }
 
-    renderizarGrafico(pctOcupacao, pctOciosidade);
-    renderizarCobrancas();
-    renderizarTabelaCompleta(); // <-- NOVA CHAMADA
-}
+/* Topbar & Main */
+.main-content { flex: 1; padding: 20px 30px; overflow-y: auto; }
+.topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+.topbar h2 { font-size: 1.5rem; }
+.topbar-right { display: flex; align-items: center; gap: 20px; }
+.clock { font-size: 1.2rem; font-weight: monospace; color: var(--blue); }
+.notification-bell { font-size: 1.2rem; color: var(--text-muted); transition: 0.3s; }
+.notification-bell.active { color: var(--yellow); animation: ring 0.5s ease-in-out infinite; }
 
-// ==========================================
-// 2. TABELA DE MONITORAMENTO E TROCA DE PLACA
-// ==========================================
-function renderizarTabelaCompleta() {
-    const tbody = document.getElementById('tabela-dashboard-body');
-    tbody.innerHTML = '';
+/* Botões Customizados */
+.btn-whatsapp { background: #25D366; color: white; border: none; padding: 8px 15px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+.btn-whatsapp:hover { background: #1ebd5a; }
+.btn-outline { background: transparent; border: 1px solid var(--border-color); color: var(--text-main); padding: 8px 15px; border-radius: 6px; cursor: pointer; }
+.btn-outline:hover { background: var(--border-color); }
+.btn-sucesso { background: var(--blue); color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; }
 
-    frotaAtiva.forEach((v, index) => {
-        // Estiliza a cor do status baseado no texto
-        let statusClass = "bg-success"; 
-        if (v.status.toLowerCase().includes("atrasado") || v.status.toLowerCase().includes("sem previsão")) statusClass = "bg-red";
-        else if (v.status.toLowerCase().includes("finalizado")) statusClass = "bg-gray";
-        
-        let motivoHtml = v.motivoTroca ? `<span class="motivo-texto"><i class="fa-solid fa-triangle-exclamation"></i> ${v.motivoTroca}</span>` : "-";
+/* Abas e Painéis */
+.secao-aba { display: none; animation: fadeIn 0.3s; }
+.secao-aba.ativa { display: block; }
+.panel { background: var(--panel-bg); padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
 
-        tbody.innerHTML += `
-            <tr>
-                <td>
-                    <button class="btn-icon" onclick="abrirModalPlaca(${index}, '${v.placa}')" title="Trocar Placa">
-                        <i class="fa-solid fa-pen-to-square"></i>
-                    </button>
-                </td>
-                <td><strong>${v.placa}</strong></td>
-                <td>${v.transp}</td>
-                <td>${v.cliente}</td>
-                <td><span class="badge ${statusClass}">${v.status}</span></td>
-                <td>${motivoHtml}</td>
-            </tr>
-        `;
-    });
-}
+/* KPIs */
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+.kpi-card { background: var(--panel-bg); padding: 20px; border-radius: 10px; border-left: 4px solid transparent; display: flex; justify-content: space-between; align-items: center; }
+.border-green { border-color: var(--green); } .border-gray { border-color: var(--gray); }
+.border-yellow { border-color: var(--yellow); } .border-red { border-color: var(--red); }
+.kpi-value { font-size: 1.8rem; font-weight: bold; }
 
-function abrirModalPlaca(index, placaAtual) {
-    document.getElementById('modal-id-veiculo').value = index;
-    document.getElementById('placa-atual-texto').textContent = `Placa Atual: ${placaAtual}`;
-    document.getElementById('nova-placa').value = '';
-    document.getElementById('modal-placa').classList.remove('hidden');
-}
+/* Tabelas e Modais */
+.table-responsive { width: 100%; overflow-x: auto; }
+.tabela-padrao { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem; }
+.tabela-padrao th, .tabela-padrao td { padding: 12px; border-bottom: 1px solid var(--border-color); }
+.badge { padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; }
+.bg-ia-motorista { background: rgba(245, 158, 11, 0.2); color: var(--yellow); border: 1px solid var(--yellow); }
+.bg-ia-carregamento { background: rgba(239, 68, 68, 0.2); color: var(--red); border: 1px solid var(--red); }
+.bg-ia-ok { background: rgba(16, 185, 129, 0.2); color: var(--green); }
 
-function fecharModal() { document.getElementById('modal-placa').classList.add('hidden'); }
+.modal { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+.modal-content { background: var(--panel-bg); padding: 25px; border-radius: 10px; width: 400px; }
+.hidden { display: none !important; }
+.form-group { margin-bottom: 15px; }
+.form-group label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 5px; }
+.input-form { width: 100%; padding: 8px; border-radius: 5px; border: 1px solid var(--border-color); background: var(--bg-dark); color: white; }
 
-function salvarTrocaPlaca() {
-    const index = document.getElementById('modal-id-veiculo').value;
-    const novaPlaca = document.getElementById('nova-placa').value;
-    const motivo = document.getElementById('motivo-troca').value;
+.toast { position: fixed; bottom: 20px; right: 20px; background: var(--blue); padding: 15px; border-radius: 8px; z-index: 2000; }
 
-    if (novaPlaca.trim() !== "") {
-        frotaAtiva[index].placa = novaPlaca.toUpperCase();
-        frotaAtiva[index].motivoTroca = motivo;
-        salvarDados();
-        fecharModal();
-        mostrarToast(`Placa alterada para ${novaPlaca.toUpperCase()}`);
-    }
-}
-
-// ==========================================
-// 3. NOTIFICAR COMERCIAL (Gera o Relatório)
-// ==========================================
-window.enviarPlanilhaComercial = function() {
-    let textoComercial = "*RESUMO OPERACIONAL - MONITORAMENTO*\n\n";
-    
-    let pendentes = frotaAtiva.filter(v => !v.status.toLowerCase().includes("finalizado"));
-    
-    if (pendentes.length === 0) {
-        textoComercial += "✅ Todas as rotas estão finalizadas no momento.\n";
-    } else {
-        pendentes.forEach(v => {
-            textoComercial += `🚚 *${v.cliente}* (Transp: ${v.transp})\n`;
-            textoComercial += `📍 Placa: ${v.placa} | Status: ${v.status}\n`;
-            if (v.motivoTroca) textoComercial += `⚠️ Obs: Troca de placa por ${v.motivoTroca}\n`;
-            textoComercial += `--------------------------\n`;
-        });
-    }
-
-    navigator.clipboard.writeText(textoComercial).then(() => {
-        mostrarToast("Resumo copiado! Cole no Teams ou E-mail do Comercial.");
-    });
-}
-
-// ==========================================
-// 4. IMPORTAÇÃO INTELIGENTE (CORREÇÃO DA BAGUNÇA)
-// ==========================================
-const dropZone = document.getElementById('drop-zone');
-const fileInput = document.getElementById('file-input');
-
-dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-dropZone.addEventListener('drop', (e) => {
-    e.preventDefault(); dropZone.classList.remove('dragover');
-    if (e.dataTransfer.files.length) processarArquivo(e.dataTransfer.files[0]);
-});
-fileInput.addEventListener('change', function() { if (this.files.length) processarArquivo(this.files[0]); });
-
-function processarArquivo(arquivo) {
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-        
-        // Lê a partir da linha 3 (range: 2), onde os cabeçalhos reais estão!
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { range: 2, defval: "" });
-        mapearColunasExatas(jsonData);
-    };
-    reader.readAsArrayBuffer(arquivo);
-}
-
-function mapearColunasExatas(dadosBrutos) {
-    frotaTemporaria = [];
-    dadosBrutos.forEach((linha, index) => {
-        // Busca cirúrgica pelas colunas com o nome EXATO ou partes óbvias (ignorando CONCATENAR/LOJA solto)
-        let placaStr = linha['PLACA'] || linha['Placa'] || getValorSeguro(linha, 'placa');
-        let transpStr = linha['TRANSP.'] || linha['Transp'] || linha['TRANSPORTADORA'] || getValorSeguro(linha, 'transp');
-        let clienteStr = linha['CLIENTE'] || linha['Cliente'] || getValorSeguro(linha, 'cliente'); 
-        let statusStr = linha['STATUS'] || linha['Status'] || getValorSeguro(linha, 'status');
-
-        if(placaStr && clienteStr && placaStr.trim() !== "") {
-            let tempoStr = statusStr.toLowerCase().includes('atrasado') ? 'Atrasado' : 'Normal';
-            frotaTemporaria.push({
-                id: index,
-                placa: placaStr,
-                transp: transpStr || "N/A",
-                cliente: clienteStr,
-                status: statusStr || "Em processo",
-                tipo: statusStr.toLowerCase().includes('loja') ? 'Comercial' : 'Rota',
-                tempo: tempoStr,
-                motivoTroca: null // Inicialmente vazio
-            });
-        }
-    });
-
-    if(frotaTemporaria.length > 0) {
-        frotaAtiva = frotaTemporaria;
-        salvarDados();
-        mostrarToast(`Importação perfeita! ${frotaAtiva.length} veículos carregados.`);
-        setTimeout(() => document.querySelector('[data-target="aba-dashboard"]').click(), 1000);
-    } else {
-        alert("Erro: Não encontrei as colunas PLACA e CLIENTE. Verifique a planilha.");
-    }
-}
-
-// Função auxiliar mais estrita para evitar pegar números do concatenar
-function getValorSeguro(obj, chaveAlvo) {
-    let chave = Object.keys(obj).find(k => k.toLowerCase().trim() === chaveAlvo.toLowerCase());
-    return chave ? obj[chave] : "";
-}
-
-// ==========================================
-// FUNÇÕES AUXILIARES, GRÁFICOS E MENUS (MANTIDOS)
-// ==========================================
-document.querySelectorAll('#menu-principal li').forEach(item => {
-    item.addEventListener('click', function() {
-        document.querySelectorAll('#menu-principal li').forEach(li => li.classList.remove('active'));
-        document.querySelectorAll('.secao-aba').forEach(aba => aba.classList.remove('ativa'));
-        this.classList.add('active');
-        document.getElementById(this.getAttribute('data-target')).classList.add('ativa');
-    });
-});
-
-let myChart;
-function renderizarGrafico(ocupado, ocioso) {
-    const ctx = document.getElementById('operacionalChart').getContext('2d');
-    if(myChart) myChart.destroy();
-    myChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: { labels: ['Ocupação', 'Ociosidade'], datasets: [{ data: [ocupado, ocioso], backgroundColor: ['#10b981', '#ef4444'], borderWidth: 0, cutout: '70%' }] },
-        options: { responsive: true, maintainAspectRatio: false }
-    });
-}
-
-function renderizarCobrancas() {
-    const list = document.getElementById('action-list');
-    list.innerHTML = '';
-    frotaAtiva.forEach(v => {
-        if (v.status.toLowerCase().includes("atrasado") || v.status.toLowerCase().includes("sem previsão")) {
-            list.innerHTML += `<div class="alert-item" style="border-left: 4px solid var(--red)">
-                <div><strong>${v.cliente}</strong><p style="font-size:0.8rem">${v.placa}</p></div>
-            </div>`;
-        }
-    });
-}
-
-function mostrarToast(msg) {
-    const toast = document.getElementById('toast');
-    toast.textContent = msg;
-    toast.classList.remove('hidden');
-    setTimeout(() => toast.classList.add('hidden'), 3000);
-}
-
-setInterval(() => document.getElementById('realtime-clock').textContent = new Date().toLocaleTimeString('pt-BR'), 1000);
-initDashboard();
+/* Animações */
+@keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes piscar { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+@keyframes ring { 0% { transform: rotate(0); } 25% { transform: rotate(15deg); } 50% { transform: rotate(-15deg); } 75% { transform: rotate(10deg); } 100% { transform: rotate(0); } }
