@@ -134,6 +134,66 @@ function processarImportacao(dadosBrutos, origem) {
 // ==========================================
 // 6. RENDERIZAÇÃO DAS ABAS (COM BOTÃO DE LIXEIRA)
 // ==========================================
+// ==========================================
+// 6. RENDERIZAÇÃO, BUSCA E FILTROS (ATUALIZADO)
+// ==========================================
+
+// Variáveis para guardar o que você está pesquisando/filtrando
+let termoBusca = "";
+let statusSelecionado = "";
+let transpSelecionada = "";
+
+// Escuta o que você digita na barra de pesquisa
+document.getElementById('global-search')?.addEventListener('input', function(e) {
+    termoBusca = e.target.value.toLowerCase();
+    aplicarFiltrosTela();
+});
+
+// Função chamada quando você mexe nos selects (dropdowns)
+window.aplicarFiltrosTela = function() {
+    statusSelecionado = document.getElementById('filtro-status').value;
+    transpSelecionada = document.getElementById('filtro-transp').value;
+    
+    renderizarMonitoramento();
+    renderizarReagendamentos();
+    renderizarOciosidade();
+}
+
+function filtrarDados(dados) {
+    return dados.filter(v => {
+        // 1. Busca por texto (qualquer campo)
+        let textoCarro = Object.values(v).join(" ").toLowerCase();
+        let bateBusca = textoCarro.includes(termoBusca);
+
+        // 2. Filtro de Status
+        let bateStatus = true;
+        if (statusSelecionado === "FINALIZADO") bateStatus = v.status.toUpperCase().includes("FINALIZADO");
+        else if (statusSelecionado === "AGUARDANDO") bateStatus = v.status.toUpperCase().includes("AGUARDANDO") || v.status.toUpperCase().includes("BACKLOG");
+        else if (statusSelecionado === "ROTA") bateStatus = !v.status.toUpperCase().includes("FINALIZADO") && !v.status.toUpperCase().includes("AGUARDANDO") && !v.status.toUpperCase().includes("BACKLOG");
+
+        // 3. Filtro de Transportadora
+        let bateTransp = true;
+        if (transpSelecionada !== "") bateTransp = v.transp.toUpperCase() === transpSelecionada.toUpperCase();
+
+        return bateBusca && bateStatus && bateTransp;
+    });
+}
+
+// Preenche o filtro de transportadoras automaticamente sem repetir nomes
+function atualizarFiltrosDinamicos() {
+    const selectTransp = document.getElementById('filtro-transp');
+    if(!selectTransp) return;
+    
+    // Pega todas as transportadoras únicas
+    const transportadorasUnicas = [...new Set(frotaAtiva.map(v => v.transp.toUpperCase()))].filter(t => t !== "");
+    
+    // Limpa as opções antigas e recria
+    selectTransp.innerHTML = '<option value="">Todas as Transportadoras</option>';
+    transportadorasUnicas.forEach(t => {
+        selectTransp.innerHTML += `<option value="${t}">${t}</option>`;
+    });
+}
+
 function atualizarDashboard() {
     let reagPendentes = frotaAtiva.filter(v => v.reagStatus === "Pendente").length;
     let finalizados = frotaAtiva.filter(v => v.status.toUpperCase().includes("FINALIZADO")).length;
@@ -146,12 +206,22 @@ function atualizarDashboard() {
     document.getElementById('kpi-reag').textContent = reagPendentes;
 
     renderizarGraficoDash(rota, finalizados, backlog);
+    atualizarFiltrosDinamicos(); // Atualiza a lista de transportadoras no filtro
 }
 
 function renderizarMonitoramento() {
     const tbody = document.getElementById('tbody-monitoramento');
     tbody.innerHTML = '';
-    frotaAtiva.forEach(v => {
+    
+    // Passa os dados pelo filtro antes de desenhar a tabela
+    let dadosFiltrados = filtrarDados(frotaAtiva);
+    
+    if(dadosFiltrados.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted);">Nenhum dado encontrado com esses filtros.</td></tr>';
+        return;
+    }
+
+    dadosFiltrados.forEach(v => {
         let badgeClass = v.status.toUpperCase().includes("FINALIZADO") ? "bg-gray" : "bg-success";
         tbody.innerHTML += `
         <tr>
@@ -170,7 +240,8 @@ function renderizarReagendamentos() {
     const tbody = document.getElementById('tbody-reagendamentos');
     tbody.innerHTML = '';
     
-    let wmsAtacadao = frotaAtiva.filter(v => v.reagStatus !== "N/A" && !v.status.toUpperCase().includes("FINALIZADO"));
+    let dadosFiltrados = filtrarDados(frotaAtiva);
+    let wmsAtacadao = dadosFiltrados.filter(v => v.reagStatus !== "N/A" && !v.status.toUpperCase().includes("FINALIZADO"));
     
     wmsAtacadao.forEach(v => {
         let badgeClass = v.reagStatus === "Concluído" ? "bg-green" : "bg-red";
@@ -189,7 +260,8 @@ function renderizarOciosidade() {
     const tbody = document.getElementById('tbody-ociosidade');
     tbody.innerHTML = '';
 
-    let painelOciosos = frotaAtiva.filter(v => ["Backlog", "Ocioso", "Não Ocioso"].includes(v.classificacao));
+    let dadosFiltrados = filtrarDados(frotaAtiva);
+    let painelOciosos = dadosFiltrados.filter(v => ["Backlog", "Ocioso", "Não Ocioso"].includes(v.classificacao));
 
     painelOciosos.forEach(v => {
         let corClasse = v.classificacao === "Backlog" ? "text-red" : (v.classificacao === "Ocioso" ? "text-yellow" : "text-blue");
@@ -204,7 +276,6 @@ function renderizarOciosidade() {
             </tr>`;
     });
 }
-
 // ==========================================
 // 7. EDIÇÃO E EXPORTAÇÃO DA PLANILHA
 // ==========================================
