@@ -14,7 +14,25 @@ function initApp() {
 setInterval(() => document.getElementById('realtime-clock').textContent = new Date().toLocaleTimeString('pt-BR'), 1000);
 
 // ==========================================
-// 2. IMPORTAÇÃO INTELIGENTE (EXCEL)
+// 2. SISTEMA DE EXCLUSÃO (NOVO)
+// ==========================================
+window.excluirItem = function(idStr) {
+    if(confirm("Tem certeza que deseja excluir esta carga específica?")) {
+        frotaAtiva = frotaAtiva.filter(v => String(v.id) !== String(idStr));
+        salvarEAtualizar("Carga excluída com sucesso!");
+    }
+}
+
+window.limparTodosOsDados = function() {
+    if(confirm("ATENÇÃO: Isso vai apagar TODAS as cargas do sistema. Tem certeza que deseja zerar para importar um novo dia?")) {
+        frotaAtiva = [];
+        localStorage.removeItem('logisProData_0806');
+        salvarEAtualizar("Sistema completamente zerado!");
+    }
+}
+
+// ==========================================
+// 3. IMPORTAÇÃO INTELIGENTE (EXCEL)
 // ==========================================
 const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('file-input');
@@ -30,9 +48,7 @@ function lerPlanilhaExcel(arquivo) {
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, { type: 'array' });
         
-        // Foca na aba GRANDES CONTAS ou a quarta aba se existir
         let nomeAba = workbook.SheetNames.includes('GRANDES CONTAS') ? 'GRANDES CONTAS' : (workbook.SheetNames.length >= 4 ? workbook.SheetNames[3] : workbook.SheetNames[0]);
-        
         const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[nomeAba], { defval: "" });
         processarImportacao(jsonData, "Excel");
     };
@@ -40,7 +56,7 @@ function lerPlanilhaExcel(arquivo) {
 }
 
 // ==========================================
-// 3. PROCESSAMENTO DO BACKLOG (COLA MANUAL)
+// 4. PROCESSAMENTO DO BACKLOG (COLA MANUAL)
 // ==========================================
 window.processarBacklogManual = function() {
     const texto = document.getElementById('texto-backlog').value;
@@ -50,8 +66,8 @@ window.processarBacklogManual = function() {
     let backlogProcessado = [];
 
     linhas.forEach(linha => {
-        const colunas = linha.split('\t'); // Separa pelo "TAB" do Excel
-        if(colunas.length >= 3) { // Se tiver pelo menos Placa, Transp e Cliente
+        const colunas = linha.split('\t'); 
+        if(colunas.length >= 3) { 
             backlogProcessado.push({
                 PLACA: colunas[0]?.trim(),
                 TRANSPORTADORA: colunas[1]?.trim(),
@@ -65,12 +81,12 @@ window.processarBacklogManual = function() {
 
     if(backlogProcessado.length > 0) {
         processarImportacao(backlogProcessado, "Backlog");
-        document.getElementById('texto-backlog').value = ""; // Limpa a caixa
+        document.getElementById('texto-backlog').value = ""; 
     }
 }
 
 // ==========================================
-// 4. TRIAGEM DE DADOS (WMS/ATACADAO)
+// 5. TRIAGEM DE DADOS
 // ==========================================
 function processarImportacao(dadosBrutos, origem) {
     let novosRegistros = [];
@@ -86,7 +102,6 @@ function processarImportacao(dadosBrutos, origem) {
         if(placaStr && clienteStr) {
             let exigeReag = clientesReagendamento.some(c => clienteStr.toUpperCase().includes(c));
             
-            // Classificação automática para a aba de Ociosidade
             let classeOcioso = "Em Rota";
             if (statusStr.toUpperCase().includes("BACKLOG")) classeOcioso = "Backlog";
             else if (statusStr.toUpperCase().includes("OCIOSO")) classeOcioso = "Ocioso";
@@ -96,7 +111,7 @@ function processarImportacao(dadosBrutos, origem) {
                 id: Date.now() + Math.random(),
                 transporte: transporteStr,
                 placa: String(placaStr).trim(),
-                novaPlaca: "", // Campo para edição na aba Ociosidade
+                novaPlaca: "", 
                 transp: transpStr,
                 cliente: clienteStr,
                 status: statusStr,
@@ -110,14 +125,14 @@ function processarImportacao(dadosBrutos, origem) {
         }
     });
 
-    if(origem === "Excel") frotaAtiva = novosRegistros; // Excel sobrescreve
-    else frotaAtiva = [...frotaAtiva, ...novosRegistros]; // Backlog adiciona à lista
+    if(origem === "Excel") frotaAtiva = novosRegistros; 
+    else frotaAtiva = [...frotaAtiva, ...novosRegistros]; 
 
     salvarEAtualizar(`Importação de ${origem} concluída com sucesso!`);
 }
 
 // ==========================================
-// 5. RENDERIZAÇÃO DAS ABAS
+// 6. RENDERIZAÇÃO DAS ABAS (COM BOTÃO DE LIXEIRA)
 // ==========================================
 function atualizarDashboard() {
     let reagPendentes = frotaAtiva.filter(v => v.reagStatus === "Pendente").length;
@@ -138,7 +153,16 @@ function renderizarMonitoramento() {
     tbody.innerHTML = '';
     frotaAtiva.forEach(v => {
         let badgeClass = v.status.toUpperCase().includes("FINALIZADO") ? "bg-gray" : "bg-success";
-        tbody.innerHTML += `<tr><td>${v.transporte}</td><td><strong>${v.novaPlaca || v.placa}</strong></td><td>${v.transp}</td><td>${v.cliente}</td><td><span class="badge ${badgeClass}">${v.status}</span></td><td>${v.grade}</td></tr>`;
+        tbody.innerHTML += `
+        <tr>
+            <td><button class="btn-icon" style="color: var(--red);" onclick="excluirItem('${v.id}')" title="Excluir Carga"><i class="fa-solid fa-trash"></i></button></td>
+            <td>${v.transporte}</td>
+            <td><strong>${v.novaPlaca || v.placa}</strong></td>
+            <td>${v.transp}</td>
+            <td>${v.cliente}</td>
+            <td><span class="badge ${badgeClass}">${v.status}</span></td>
+            <td>${v.grade}</td>
+        </tr>`;
     });
 }
 
@@ -146,7 +170,6 @@ function renderizarReagendamentos() {
     const tbody = document.getElementById('tbody-reagendamentos');
     tbody.innerHTML = '';
     
-    // Filtra apenas os que são obrigatórios e não estão finalizados
     let wmsAtacadao = frotaAtiva.filter(v => v.reagStatus !== "N/A" && !v.status.toUpperCase().includes("FINALIZADO"));
     
     wmsAtacadao.forEach(v => {
@@ -183,15 +206,13 @@ function renderizarOciosidade() {
 }
 
 // ==========================================
-// 6. EDIÇÃO E EXPORTAÇÃO DA PLANILHA (S/ BACKEND)
+// 7. EDIÇÃO E EXPORTAÇÃO DA PLANILHA
 // ==========================================
 window.atualizarCampo = function(idStr, campo, valor) {
     let index = frotaAtiva.findIndex(v => String(v.id) === String(idStr));
     if(index > -1) {
         frotaAtiva[index][campo] = valor.toUpperCase();
-        localStorage.setItem('logisProData_0806', JSON.stringify(frotaAtiva));
-        // Atualiza silenciosamente as outras telas se mudou a placa
-        if(campo === 'novaPlaca') { renderizarMonitoramento(); renderizarReagendamentos(); }
+        salvarEAtualizar(""); // Atualiza silenciosamente
     }
 }
 
@@ -212,14 +233,12 @@ window.exportarPlanilhaOciosidade = function() {
     const worksheet = XLSX.utils.json_to_sheet(dadosExportacao);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Ociosidade_Backlog");
-    
-    // Gera e faz download do arquivo
-    XLSX.writeFile(workbook, `Relatorio_Patio_08_06.xlsx`);
+    XLSX.writeFile(workbook, `Relatorio_Patio.xlsx`);
     mostrarToast("Planilha exportada com sucesso!");
 }
 
 // ==========================================
-// 7. LÓGICA DO MODAL DE REAGENDAMENTO E STATUS
+// 8. LÓGICA DO MODAL E WHATSAPP
 // ==========================================
 window.abrirModalReag = function(idStr) {
     const v = frotaAtiva.find(v => String(v.id) === String(idStr));
@@ -244,7 +263,7 @@ window.salvarReagendamento = function() {
 
 window.enviarWhatsApp = function() {
     let pendentes = frotaAtiva.filter(v => !v.status.toUpperCase().includes("FINALIZADO"));
-    let texto = `*Torre de Controle Operacional*\nData: 08/06/2026\n\n*Resumo de Rotas:*\n🚚 Em andamento: ${pendentes.length}\n✅ Finalizados: ${frotaAtiva.length - pendentes.length}\n\n`;
+    let texto = `*Torre de Controle Operacional*\nData: Hoje\n\n*Resumo de Rotas:*\n🚚 Em andamento: ${pendentes.length}\n✅ Finalizados: ${frotaAtiva.length - pendentes.length}\n\n`;
     const url = `https://wa.me/?text=${encodeURIComponent(texto)}`;
     window.open(url, '_blank');
 }
@@ -258,7 +277,7 @@ function renderizarGraficoDash(r, f, b) {
 }
 
 window.fecharModais = function() { document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden')); }
-function salvarEAtualizar(msg) { localStorage.setItem('logisProData_0806', JSON.stringify(frotaAtiva)); atualizarDashboard(); renderizarMonitoramento(); renderizarReagendamentos(); renderizarOciosidade(); mostrarToast(msg); }
+function salvarEAtualizar(msg) { localStorage.setItem('logisProData_0806', JSON.stringify(frotaAtiva)); atualizarDashboard(); renderizarMonitoramento(); renderizarReagendamentos(); renderizarOciosidade(); if(msg) mostrarToast(msg); }
 function mostrarToast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.remove('hidden'); setTimeout(()=>t.classList.add('hidden'), 3000); }
 
 // Navegação Padrão
