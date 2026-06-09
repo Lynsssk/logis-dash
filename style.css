@@ -79,4 +79,12 @@ body { background-color: var(--bg-dark); color: var(--text-main); display: flex;
 .input-tabela:focus { border-color: var(--blue); }
 select.input-tabela { appearance: none; background-color: var(--panel-bg); }
 .chart-container { height: 250px; display: flex; justify-content: center; }
-textarea.input-form { resize: vertical; font-family: monospace; }
+/* ================= BARRA DE PESQUISA ================= */
+.search-container { position: relative; display: flex; align-items: center; }
+.search-container i { position: absolute; left: 12px; color: var(--text-muted); }
+.search-container input { 
+    background: var(--panel-bg); border: 1px solid var(--border-color); 
+    color: white; padding: 10px 10px 10px 35px; border-radius: 8px; 
+    width: 350px; outline: none; transition: 0.3s;
+}
+.search-container input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); }textarea.input-form { resize: vertical; font-family: monospace; }
