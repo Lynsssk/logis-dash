@@ -88,12 +88,17 @@ window.processarBacklogManual = function() {
 // ==========================================
 // 5. TRIAGEM DE DADOS
 // ==========================================
+// ==========================================
+// 5. TRIAGEM DE DADOS
+// ==========================================
 function processarImportacao(dadosBrutos, origem) {
     let novosRegistros = [];
 
     dadosBrutos.forEach((linha, index) => {
         let placaStr = linha['PLACA'] || linha['Placa'] || "";
-        let transpStr = linha['TRANSP.'] || linha['TRANSPORTADORA'] || linha['Transp'] || "";
+        // AQUI ESTÁ A CORREÇÃO:
+        let transpStr = linha['TRANSP'] || linha['TRANSP.'] || linha['TRANSPORTADORA'] || linha['Transp'] || "";
+        
         let clienteStr = linha['CLIENTE'] || linha['Cliente'] || "";
         let statusStr = linha['STATUS'] || linha['Status'] || "Aguardando";
         let transporteStr = linha['TRANSPORTE'] || linha['CONCATENAR'] || `MANUAL-${index}`;
@@ -130,7 +135,6 @@ function processarImportacao(dadosBrutos, origem) {
 
     salvarEAtualizar(`Importação de ${origem} concluída com sucesso!`);
 }
-
 // ==========================================
 // 6. RENDERIZAÇÃO DAS ABAS (COM BOTÃO DE LIXEIRA)
 // ==========================================
