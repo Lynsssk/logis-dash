@@ -53,8 +53,13 @@
         <div id="aba-importacao" class="secao-aba">
             <div class="dashboard-body">
                 <div class="panel">
-                    <h2><i class="fa-solid fa-file-excel text-green"></i> Importar Escala / Monitoramento</h2>
-                    <p class="text-muted">Insira a planilha inteira. O sistema filtrará a aba Grandes Contas e a data atual.</p>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h2><i class="fa-solid fa-file-excel text-green"></i> Importar Escala</h2>
+                        <button class="btn-outline" style="color: var(--red); border-color: var(--red);" onclick="limparTodosOsDados()">
+                            <i class="fa-solid fa-trash-can"></i> Zerar Sistema
+                        </button>
+                    </div>
+                    <p class="text-muted">Insira a planilha inteira. O sistema filtrará a aba Grandes Contas.</p>
                     <div class="area-upload" id="drop-zone" style="margin-top: 15px;">
                         <i class="fa-solid fa-cloud-arrow-up icon-upload"></i>
                         <h3>Arraste sua planilha (.xlsx) aqui</h3>
@@ -77,7 +82,7 @@
                 <h2>Torre de Monitoramento (Grandes Contas)</h2>
                 <div class="table-responsive">
                     <table class="tabela-padrao">
-                        <thead><tr><th>Transporte</th><th>Placa</th><th>Transportadora</th><th>Cliente</th><th>Status</th><th>Previsão/Grade</th></tr></thead>
+                        <thead><tr><th>Ação</th><th>Transporte</th><th>Placa</th><th>Transportadora</th><th>Cliente</th><th>Status</th><th>Grade</th></tr></thead>
                         <tbody id="tbody-monitoramento"></tbody>
                     </table>
                 </div>
@@ -110,7 +115,6 @@
         <div id="aba-reagendamentos" class="secao-aba">
             <div class="panel">
                 <h2>Gestão de Reagendamentos (Triagem Automática)</h2>
-                <p class="text-muted">Cargas WMS e Atacadão detectadas na importação aparecem aqui automaticamente.</p>
                 <div class="table-responsive" style="margin-top: 20px;">
                     <table class="tabela-padrao">
                         <thead><tr><th>Transporte</th><th>Cliente</th><th>Placa</th><th>Portal/Carga</th><th>Status</th><th>Ações</th></tr></thead>
