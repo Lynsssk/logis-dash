@@ -22,11 +22,12 @@
     </nav>
 
     <main class="main-content">
-        <header class="topbar">
-            <div>
-                <h2>Torre de Controle Operacional</h2>
-                <p id="data-atual" class="text-muted">08 de Junho de 2026</p>
+       <header class="topbar">
+            <div class="search-container">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="global-search" placeholder="Pesquisar placa, cliente, transp, status...">
             </div>
+            
             <div class="topbar-right">
                 <button class="btn-whatsapp" onclick="enviarWhatsApp()"><i class="fa-brands fa-whatsapp"></i> Gerar Status Comercial</button>
                 <div class="clock" id="realtime-clock">00:00:00</div>
@@ -79,7 +80,22 @@
 
         <div id="aba-monitoramento" class="secao-aba">
             <div class="panel">
-                <h2>Torre de Monitoramento (Grandes Contas)</h2>
+                <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px;">
+                    <h2>Torre de Monitoramento</h2>
+                    
+                    <div style="display: flex; gap: 10px;">
+                        <select id="filtro-status" class="input-form" style="width: auto;" onchange="aplicarFiltrosTela()">
+                            <option value="">Todos os Status</option>
+                            <option value="FINALIZADO">Somente Finalizados</option>
+                            <option value="ROTA">Em Rota / Loja</option>
+                            <option value="AGUARDANDO">Backlog / Aguardando</option>
+                        </select>
+                        <select id="filtro-transp" class="input-form" style="width: auto;" onchange="aplicarFiltrosTela()">
+                            <option value="">Todas as Transportadoras</option>
+                            </select>
+                    </div>
+                </div>
+
                 <div class="table-responsive">
                     <table class="tabela-padrao">
                         <thead><tr><th>Ação</th><th>Transporte</th><th>Placa</th><th>Transportadora</th><th>Cliente</th><th>Status</th><th>Grade</th></tr></thead>
