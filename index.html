@@ -165,5 +165,16 @@
 
     <div id="toast" class="toast hidden">Notificação</div>
     <script src="script.js"></script>
+    <div id="modal-log" class="modal hidden">
+    <div class="modal-content">
+        <h3>Registrar Tratativa</h3>
+        <p id="log-transporte" style="font-weight: bold;"></p>
+        <textarea id="texto-log" class="input-form" rows="4" placeholder="Ex: Motorista informou falta de empilhadeira. Acordado descarregar às 14h."></textarea>
+        <div style="display: flex; gap: 10px; margin-top: 15px;">
+            <button class="btn-sucesso" onclick="salvarLog()" style="flex: 1;">Salvar Registro</button>
+            <button class="btn-outline" onclick="fecharModais()" style="flex: 1;">Cancelar</button>
+        </div>
+    </div>
+</div>
 </body>
 </html>
