@@ -354,4 +354,21 @@ function mostrarToast(msg) { const t = document.getElementById('toast'); t.textC
 // Navegação Padrão
 document.querySelectorAll('#menu-principal li').forEach(item => { item.addEventListener('click', function() { document.querySelectorAll('#menu-principal li').forEach(li => li.classList.remove('active')); document.querySelectorAll('.secao-aba').forEach(aba => aba.classList.remove('ativa')); this.classList.add('active'); document.getElementById(this.getAttribute('data-target')).classList.add('ativa'); }); });
 
+window.abrirLogTratativa = function(idStr) {
+    const v = frotaAtiva.find(v => String(v.id) === String(idStr));
+    document.getElementById('reag-id').value = idStr; // Reutilizando o input hidden do modal anterior ou crie um novo
+    document.getElementById('log-transporte').textContent = `Carga: ${v.transporte} | Placa: ${v.placa}`;
+    document.getElementById('texto-log').value = v.historicoLog || "";
+    document.getElementById('modal-log').classList.remove('hidden');
+}
+
+window.salvarLog = function() {
+    const idStr = document.getElementById('reag-id').value;
+    const texto = document.getElementById('texto-log').value;
+    const index = frotaAtiva.findIndex(v => String(v.id) === String(idStr));
+    
+    frotaAtiva[index].historicoLog = `${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()} - ${texto}`;
+    salvarEAtualizar("Tratativa registrada!");
+    fecharModais();
+}
 initApp();
