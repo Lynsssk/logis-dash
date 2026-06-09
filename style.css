@@ -1,247 +1,82 @@
-let frotaAtiva = JSON.parse(localStorage.getItem('logisProData')) || [];
-const clientesReagendamento = ['ATACADAO', 'ATACADÃO', 'WMS', 'ASSAI', 'ASSAÍ', 'CARREFOUR'];
-
-// ==========================================
-// 1. INICIALIZAÇÃO E RELÓGIO DA ROTINA
-// ==========================================
-function initApp() {
-    document.getElementById('data-importacao').valueAsDate = new Date();
-    document.getElementById('data-atual').textContent = new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    
-    atualizarDashboard();
-    renderizarTabelas();
-    setInterval(verificarRotina, 60000); // Checa alarmes a cada 1 min
-    verificarRotina();
+:root {
+    --bg-dark: #0f172a; --panel-bg: #1e293b; --text-main: #f8fafc; --text-muted: #94a3b8;
+    --green: #10b981; --yellow: #f59e0b; --red: #ef4444; --blue: #3b82f6; --gray: #64748b;
+    --border-color: #334155;
 }
 
-setInterval(() => document.getElementById('realtime-clock').textContent = new Date().toLocaleTimeString('pt-BR'), 1000);
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+body { background-color: var(--bg-dark); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
 
-function verificarRotina() {
-    const horaAtual = new Date().getHours();
-    const sino = document.getElementById('sino-alerta');
-    let alarmeAtivo = false;
+/* Navegação e Rotina */
+.sidebar { width: 260px; background: var(--panel-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; }
+.logo { padding: 20px; font-size: 1.2rem; font-weight: bold; color: var(--blue); border-bottom: 1px solid var(--border-color); }
+.menu { list-style: none; padding: 15px; }
+.menu li { padding: 12px; margin-bottom: 5px; border-radius: 8px; cursor: pointer; color: var(--text-muted); transition: 0.2s; display: flex; gap: 10px; align-items: center; }
+.menu li:hover, .menu li.active { background: rgba(59, 130, 246, 0.1); color: var(--blue); }
 
-    const rotinas = { '08': 8, '10': 10, '15': 15, '17': 17 };
-    
-    for (let id in rotinas) {
-        let el = document.getElementById(`rotina-${id}`);
-        if (horaAtual === rotinas[id]) {
-            el.classList.add('urgente');
-            alarmeAtivo = true;
-        } else if (horaAtual > rotinas[id]) {
-            el.classList.remove('urgente');
-            el.style.textDecoration = 'line-through';
-        }
-    }
-    
-    alarmeAtivo ? sino.classList.add('active') : sino.classList.remove('active');
+.rotina-panel { margin-top: auto; padding: 20px; border-top: 1px solid var(--border-color); background: rgba(0,0,0,0.2); }
+.rotina-panel h4 { color: var(--yellow); margin-bottom: 15px; font-size: 0.9rem; }
+#lista-rotina { list-style: none; }
+#lista-rotina li { display: flex; gap: 10px; font-size: 0.85rem; padding: 8px 0; border-bottom: 1px solid var(--border-color); color: var(--text-muted); }
+#lista-rotina li span { font-weight: bold; color: var(--text-main); }
+#lista-rotina li.pendente.urgente { color: var(--red); animation: piscar 1s infinite; }
+
+/* Topbar & Main */
+.main-content { flex: 1; padding: 20px 30px; overflow-y: auto; }
+.topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+.topbar h2 { font-size: 1.5rem; }
+.topbar-right { display: flex; align-items: center; gap: 20px; }
+.clock { font-size: 1.2rem; font-weight: monospace; color: var(--blue); }
+.notification-bell { font-size: 1.2rem; color: var(--text-muted); transition: 0.3s; }
+.notification-bell.active { color: var(--yellow); animation: ring 0.5s ease-in-out infinite; }
+
+/* Botões Customizados */
+.btn-whatsapp { background: #25D366; color: white; border: none; padding: 8px 15px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+.btn-whatsapp:hover { background: #1ebd5a; }
+.btn-outline { background: transparent; border: 1px solid var(--border-color); color: var(--text-main); padding: 8px 15px; border-radius: 6px; cursor: pointer; }
+.btn-outline:hover { background: var(--border-color); }
+.btn-sucesso { background: var(--blue); color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; }
+
+/* Abas e Painéis */
+.secao-aba { display: none; animation: fadeIn 0.3s; }
+.secao-aba.ativa { display: block; }
+.panel { background: var(--panel-bg); padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+
+/* KPIs */
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+.kpi-card { background: var(--panel-bg); padding: 20px; border-radius: 10px; border-left: 4px solid transparent; display: flex; justify-content: space-between; align-items: center; }
+.border-green { border-color: var(--green); } .border-gray { border-color: var(--gray); }
+.border-yellow { border-color: var(--yellow); } .border-red { border-color: var(--red); }
+.kpi-value { font-size: 1.8rem; font-weight: bold; }
+
+/* Tabelas e Modais */
+.table-responsive { width: 100%; overflow-x: auto; }
+.tabela-padrao { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem; }
+.tabela-padrao th, .tabela-padrao td { padding: 12px; border-bottom: 1px solid var(--border-color); }
+.badge { padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; }
+.bg-ia-motorista { background: rgba(245, 158, 11, 0.2); color: var(--yellow); border: 1px solid var(--yellow); }
+.bg-ia-carregamento { background: rgba(239, 68, 68, 0.2); color: var(--red); border: 1px solid var(--red); }
+.bg-ia-ok { background: rgba(16, 185, 129, 0.2); color: var(--green); }
+
+.modal { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+.modal-content { background: var(--panel-bg); padding: 25px; border-radius: 10px; width: 400px; }
+.hidden { display: none !important; }
+.form-group { margin-bottom: 15px; }
+.form-group label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 5px; }
+.input-form { width: 100%; padding: 8px; border-radius: 5px; border: 1px solid var(--border-color); background: var(--bg-dark); color: white; }
+
+.toast { position: fixed; bottom: 20px; right: 20px; background: var(--blue); padding: 15px; border-radius: 8px; z-index: 2000; }
+
+/* Animações */
+@keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes piscar { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+@keyframes ring { 0% { transform: rotate(0); } 25% { transform: rotate(15deg); } 50% { transform: rotate(-15deg); } 75% { transform: rotate(10deg); } 100% { transform: rotate(0); } }
+
+.input-tabela {
+    width: 100%; padding: 6px; border-radius: 4px; border: 1px solid var(--border-color);
+    background: rgba(0,0,0,0.2); color: var(--text-main); font-size: 0.85rem; outline: none;
 }
-
-// ==========================================
-// 2. INTELIGÊNCIA DE ATRASOS (Fim vs Início)
-// ==========================================
-function calcularDiagnostico(fimCarreg, inicioViagem) {
-    if (!fimCarreg || !inicioViagem || fimCarreg === "" || inicioViagem === "") return { texto: "Sem dados exatos", classe: "bg-gray" };
-    
-    // Simplificação de lógica de tempo (HH:MM)
-    try {
-        const t1 = parseInt(fimCarreg.replace(':', ''));
-        const t2 = parseInt(inicioViagem.replace(':', ''));
-        
-        if (t2 - t1 > 100) return { texto: "Atraso do Motorista", classe: "bg-ia-motorista" };
-        if (t1 > 1200) return { texto: "Atraso de Carregamento", classe: "bg-ia-carregamento" }; // Exemplo: Se carregou depois do 12h
-        return { texto: "Fluxo Normal", classe: "bg-ia-ok" };
-    } catch {
-        return { texto: "Análise Indisponível", classe: "bg-gray" };
-    }
-}
-
-// ==========================================
-// 3. RENDERIZAÇÃO DO DASHBOARD E REAGENDAMENTOS
-// ==========================================
-function atualizarDashboard() {
-    let finalizados = 0, semPrev = 0, aguardando = 0;
-    
-    frotaAtiva.forEach(v => {
-        let st = v.status.toUpperCase();
-        if (st.includes("FINALIZADO")) finalizados++;
-        else if (st.includes("SEM PREVISÃO") || st.includes("ATRASADO")) semPrev++;
-        else if (st.includes("AGUARDANDO")) aguardando++;
-    });
-
-    document.getElementById('kpi-rota').textContent = frotaAtiva.length - finalizados - semPrev - aguardando;
-    document.getElementById('kpi-fin').textContent = finalizados;
-    document.getElementById('kpi-aguard').textContent = aguardando;
-    document.getElementById('kpi-atraso').textContent = semPrev;
-}
-
-function renderizarTabelas() {
-    const tbMonitoramento = document.getElementById('tbody-monitoramento');
-    const tbIA = document.getElementById('tabela-ia-atrasos');
-    const tbReagend = document.getElementById('tbody-reagendamentos');
-    
-    tbMonitoramento.innerHTML = ''; tbIA.innerHTML = ''; tbReagend.innerHTML = '';
-
-    frotaAtiva.forEach((v, index) => {
-        let diag = calcularDiagnostico(v.fimCarregamento, v.inicioViagem);
-        
-        // Tabela Geral
-        tbMonitoramento.innerHTML += `
-            <tr>
-                <td><button class="btn-outline"><i class="fa-solid fa-ellipsis-vertical"></i></button></td>
-                <td><strong>${v.placa}</strong></td>
-                <td>${v.cliente}</td>
-                <td>${v.fimCarregamento || '-'}</td>
-                <td>${v.inicioViagem || '-'}</td>
-                <td><span class="badge" style="background: rgba(255,255,255,0.1)">${v.status}</span></td>
-                <td><span class="badge ${diag.classe}">${diag.texto}</span></td>
-            </tr>
-        `;
-
-        // Tabela de IA (Apenas atrasos)
-        if (diag.classe !== "bg-ia-ok" && diag.classe !== "bg-gray") {
-            tbIA.innerHTML += `<tr><td>${v.cliente}</td><td>${v.placa}</td><td><span class="badge ${diag.classe}">${diag.texto}</span></td></tr>`;
-        }
-
-        // Tabela Reagendamentos (Filtro Inteligente)
-        let exigeReagendamento = clientesReagendamento.some(c => v.cliente.toUpperCase().includes(c));
-        if (exigeReagendamento && !v.status.toUpperCase().includes("FINALIZADO")) {
-            let statusReag = v.reagStatus || "Pendente";
-            let iconAnexo = v.reagAnexo ? `<i class="fa-solid fa-file-pdf text-red" title="${v.reagAnexo}"></i>` : "-";
-            
-            tbReagend.innerHTML += `
-                <tr>
-                    <td><strong>${v.cliente}</strong></td>
-                    <td>${v.reagCarga || 'S/N'}</td>
-                    <td>${v.placa}</td>
-                    <td><span class="badge ${statusReag === 'Concluído' ? 'bg-ia-ok' : 'bg-ia-motorista'}">${statusReag}</span></td>
-                    <td>${iconAnexo}</td>
-                    <td><button class="btn-outline" onclick="abrirModalReagendamento(${index})"><i class="fa-solid fa-pen"></i></button></td>
-                </tr>
-            `;
-        }
-    });
-}
-
-// ==========================================
-// 4. MÓDULO DE REAGENDAMENTO E ARQUIVOS
-// ==========================================
-function abrirModalReagendamento(index) {
-    const v = frotaAtiva[index];
-    document.getElementById('reag-id').value = index;
-    document.getElementById('reag-cliente').textContent = `${v.cliente} - Placa: ${v.placa}`;
-    document.getElementById('reag-carga').value = v.reagCarga || '';
-    document.getElementById('reag-status').value = v.reagStatus || 'Pendente';
-    document.getElementById('modal-reagendamento').classList.remove('hidden');
-}
-
-function salvarReagendamento() {
-    const index = document.getElementById('reag-id').value;
-    const fileInput = document.getElementById('reag-file');
-    
-    frotaAtiva[index].reagCarga = document.getElementById('reag-carga').value;
-    frotaAtiva[index].reagStatus = document.getElementById('reag-status').value;
-    
-    // Simulação de Upload de PDF (Salva apenas o nome no LocalStorage)
-    if (fileInput.files.length > 0) {
-        frotaAtiva[index].reagAnexo = fileInput.files[0].name;
-    }
-    
-    salvarEAtualizar("Reagendamento atualizado com sucesso!");
-}
-
-// ==========================================
-// 5. INSERÇÃO MANUAL E EXCEL
-// ==========================================
-function abrirModalManual() { document.getElementById('modal-manual').classList.remove('hidden'); }
-function fecharModais() { document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden')); }
-
-function salvarManual() {
-    let nova = {
-        id: Date.now(),
-        cliente: document.getElementById('man-cliente').value.toUpperCase(),
-        placa: document.getElementById('man-placa').value.toUpperCase(),
-        fimCarregamento: document.getElementById('man-fim').value,
-        inicioViagem: document.getElementById('man-inicio').value,
-        status: document.getElementById('man-status').value.toUpperCase()
-    };
-    if (nova.cliente && nova.placa) {
-        frotaAtiva.push(nova);
-        salvarEAtualizar("Carga inserida manualmente!");
-    }
-}
-
-// Lógica de Leitura do Excel mantida simplificada para focar na aba Grandes Contas
-document.getElementById('file-input').addEventListener('change', function(e) {
-    if(!e.target.files.length) return;
-    const reader = new FileReader();
-    reader.onload = function(evt) {
-        const wb = XLSX.read(new Uint8Array(evt.target.result), {type: 'array'});
-        const ws = wb.Sheets[wb.SheetNames.includes('GRANDES CONTAS') ? 'GRANDES CONTAS' : wb.SheetNames[0]];
-        const dataJson = XLSX.utils.sheet_to_json(ws, {header:1});
-        processarImportacao(dataJson);
-    };
-    reader.readAsArrayBuffer(e.target.files[0]);
-});
-
-function processarImportacao(linhas) {
-    // Busca cabeçalho linha 0 ou 1
-    let headerIdx = linhas.findIndex(l => l.join("").toUpperCase().includes("PLACA"));
-    if(headerIdx === -1) { alert("Coluna PLACA não encontrada."); return; }
-    
-    const cols = linhas[headerIdx].map(c => String(c).toUpperCase().trim());
-    const idxPlaca = cols.findIndex(c => c === "PLACA");
-    const idxCliente = cols.findIndex(c => c === "CLIENTE");
-    const idxStatus = cols.findIndex(c => c === "STATUS");
-    
-    frotaAtiva = []; // Limpa a atual
-    for(let i=headerIdx+1; i<linhas.length; i++) {
-        if(linhas[i][idxPlaca]) {
-            frotaAtiva.push({
-                id: i, placa: String(linhas[i][idxPlaca]), cliente: linhas[i][idxCliente] || "S/N", 
-                status: linhas[i][idxStatus] || "AGUARDANDO", fimCarregamento: "", inicioViagem: "" // Pode ser mapeado das colunas reais depois
-            });
-        }
-    }
-    salvarEAtualizar("Planilha de Grandes Contas Importada!");
-}
-
-// ==========================================
-// 6. INTEGRAÇÃO WHATSAPP (COMERCIAL)
-// ==========================================
-window.enviarWhatsApp = function() {
-    let pendentes = frotaAtiva.filter(v => !v.status.toUpperCase().includes("FINALIZADO"));
-    let atrasos = frotaAtiva.filter(v => v.status.toUpperCase().includes("SEM PREVISÃO") || v.status.toUpperCase().includes("ATRASADO")).length;
-    
-    let texto = `*Torre de Controle | Grandes Contas*\n\n`;
-    texto += `Bom dia. Segue status atualizado:\n\n`;
-    texto += `🚚 Em rota / Loja: ${frotaAtiva.length - pendentes.length}\n`;
-    texto += `⚠️ Atrasados/Sem Prev: ${atrasos}\n`;
-    texto += `📅 Reagendamentos Críticos: ${frotaAtiva.filter(v => v.reagStatus === 'Pendente').length}\n\n`;
-    
-    texto += `*Pendências Operacionais:*\n`;
-    pendentes.forEach(v => { texto += `- ${v.cliente} (${v.placa}): ${v.status}\n`; });
-
-    // Gera o link do WhatsApp Web
-    const url = `https://wa.me/?text=${encodeURIComponent(texto)}`;
-    window.open(url, '_blank');
-}
-
-// Auxiliares
-function salvarEAtualizar(msg) {
-    localStorage.setItem('logisProData', JSON.stringify(frotaAtiva));
-    atualizarDashboard(); renderizarTabelas(); fecharModais();
-    const t = document.getElementById('toast'); t.textContent = msg;
-    t.classList.remove('hidden'); setTimeout(()=>t.classList.add('hidden'), 3000);
-}
-
-// Navegação de Abas
-document.querySelectorAll('#menu-principal li').forEach(item => {
-    item.addEventListener('click', function() {
-        document.querySelectorAll('#menu-principal li').forEach(li => li.classList.remove('active'));
-        document.querySelectorAll('.secao-aba').forEach(aba => aba.classList.remove('ativa'));
-        this.classList.add('active'); document.getElementById(this.getAttribute('data-target')).classList.add('ativa');
-    });
-});
-
-initApp();
+.input-tabela:focus { border-color: var(--blue); }
+select.input-tabela { appearance: none; background-color: var(--panel-bg); }
+.chart-container { height: 250px; display: flex; justify-content: center; }
+textarea.input-form { resize: vertical; font-family: monospace; }
